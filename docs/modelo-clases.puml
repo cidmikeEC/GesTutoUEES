@@ -1,0 +1,91 @@
+@startuml
+skinparam classAttributeIconSize 0
+title GesTutoUEES · Sistema de gestión de tutorías (Ae1)
+
+package "domain" {
+  abstract class Usuario {
+    - id : String
+    - nombre : String
+    - correo : String
+    + describirRol() : String
+  }
+  class Estudiante {
+    - carrera : String
+    + describirRol() : String
+  }
+  class Docente {
+    - especialidad : String
+    + describirRol() : String
+  }
+  class Horario {
+    - id : String
+    - inicio : LocalDateTime
+    - fin : LocalDateTime
+    - disponible : boolean
+    + estaDisponible() : boolean
+    + ocupar()
+    + liberar()
+  }
+  class Reserva {
+    - id : String
+    - creadaEn : LocalDateTime
+    - estado : EstadoReserva
+    + confirmar()
+    + cancelar()
+    + reprogramar()
+  }
+  enum EstadoReserva {
+    PENDIENTE
+    CONFIRMADA
+    CANCELADA
+    REPROGRAMADA
+    REALIZADA
+  }
+}
+
+package "service" {
+  class ServicioReservas {
+    + reservar(e, h) : Reserva
+    + cancelar(idReserva)
+    + listarReservas() : List
+  }
+}
+
+package "notification" {
+  interface Notificador {
+    + notificarReservaCreada(r)
+    + notificarReservaCancelada(r)
+  }
+  class NotificadorCorreo
+}
+
+package "persistence" {
+  interface RepositorioReservas {
+    + guardar(r)
+    + buscarPorId(id) : Optional
+    + listarTodas() : List
+  }
+  class RepositorioReservasEnMemoria
+}
+
+' Herencia (generalización)
+Usuario <|-- Estudiante
+Usuario <|-- Docente
+
+' Realización de interfaces
+Notificador <|.. NotificadorCorreo
+RepositorioReservas <|.. RepositorioReservasEnMemoria
+
+' Asociaciones del dominio
+Docente "1" -- "0..*" Horario : publica
+Reserva "1" --> "1" Estudiante
+Reserva "1" --> "1" Horario
+Reserva --> EstadoReserva
+
+' Dependencias del servicio hacia abstracciones (DIP)
+ServicioReservas ..> Notificador
+ServicioReservas ..> RepositorioReservas
+ServicioReservas ..> Reserva
+ServicioReservas ..> Horario
+
+@enduml
