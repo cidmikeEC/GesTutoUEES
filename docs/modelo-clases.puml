@@ -1,6 +1,6 @@
 @startuml
 skinparam classAttributeIconSize 0
-title GesTutoUEES · Sistema de gestión de tutorías (Ae1)
+title GesTutoUEES - Sistema de gestion de tutorias (Ae1)
 
 package "domain" {
   abstract class Usuario {

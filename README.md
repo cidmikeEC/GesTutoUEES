@@ -8,7 +8,7 @@ responsabilidades claras y que el sistema aguante cambios sin romperse por todos
 
 ---
 
-## El problema, en corto
+## El problema
 
 Un estudiante quiere una tutoría con un docente. El docente publica horarios libres,
 el estudiante reserva uno, el sistema avisa y lleva el control. Suena simple, pero hay
