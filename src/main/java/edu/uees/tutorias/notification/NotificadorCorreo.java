@@ -1,24 +1,36 @@
 package edu.uees.tutorias.notification;
 
+import edu.uees.tutorias.domain.ModalidadTutoria;
 import edu.uees.tutorias.domain.Reserva;
 
 /**
- * Implementación por correo electrónico.
- * Por ahora solo simula el envío por consola (no hay servidor SMTP en esta
- * etapa), pero cumple el contrato de Notificador y deja el punto de extensión.
+ * ConcreteProduct: Notificaciones formales mediante Correo Electrónico institucional UEES.
  */
 public class NotificadorCorreo implements Notificador {
 
     @Override
     public void notificarReservaCreada(Reserva reserva) {
-        System.out.println("  [CORREO] -> " + reserva.getHorario().getDocente().getCorreo()
-                + ": nueva reserva de " + reserva.getEstudiante().getNombre()
-                + " para el " + reserva.getHorario().getId());
+        String ubicacion = reserva.getModalidad() == ModalidadTutoria.VIRTUAL 
+                ? "Enlace: " + reserva.getEnlaceVirtual() 
+                : "Aula: " + reserva.getAula();
+
+        System.out.println("[EMAIL institucional] Para: " + reserva.getEstudiante().getCorreo()
+                + " y " + reserva.getHorario().getDocente().getCorreo()
+                + "\n  ├─ Asunto: Tutoría Académica Confirmada #" + reserva.getId()
+                + "\n  ├─ Materia: " + reserva.getMateria() + " | Tema: " + reserva.getTema()
+                + "\n  ├─ " + ubicacion
+                + "\n  └─ Recordatorio: " + reserva.getRecordatorioMinutos() + " min antes.\n");
     }
 
     @Override
     public void notificarReservaCancelada(Reserva reserva) {
-        System.out.println("  [CORREO] -> " + reserva.getHorario().getDocente().getCorreo()
-                + ": la reserva " + reserva.getId() + " fue cancelada");
+        System.out.println("[EMAIL institucional] Para: " + reserva.getEstudiante().getCorreo()
+                + "\n  ├─ Asunto: Tutoría Cancelada #" + reserva.getId()
+                + "\n  └─ El horario ha sido liberado exitosamente.\n");
+    }
+
+    @Override
+    public String getCanal() {
+        return "CORREO";
     }
 }
