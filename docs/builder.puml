@@ -1,0 +1,137 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam classAttributeIconSize 0
+skinparam defaultFontName Segoe UI
+skinparam roundCorner 8
+skinparam shadowing false
+
+skinparam class {
+    BorderColor #6E1A2D
+    HeaderBackgroundColor #6E1A2D
+    FontColor #FFFFFF
+    HeaderFontColor #FFFFFF
+    AttributeFontColor #2C2C2C
+    OperationFontColor #2C2C2C
+    BackgroundColor #FDF8F9
+}
+
+skinparam enum {
+    BorderColor #4A0F1C
+    HeaderBackgroundColor #4A0F1C
+    FontColor #FFFFFF
+    HeaderFontColor #FFFFFF
+    AttributeFontColor #2C2C2C
+    OperationFontColor #2C2C2C
+    BackgroundColor #FDF8F9
+}
+
+skinparam note {
+    BackgroundColor #F6ECEF
+    BorderColor #C08497
+    FontColor #4A0F1C
+}
+
+title GesTutoUEES · Patrón Builder (Construcción fluida y validada de Reserva)
+
+package "edu.uees.tutorias.domain" {
+
+    enum ModalidadTutoria {
+        VIRTUAL
+        PRESENCIAL
+    }
+
+    enum EstadoReserva {
+        PENDIENTE
+        CONFIRMADA
+        CANCELADA
+        REPROGRAMADA
+        REALIZADA
+    }
+
+    class Reserva <<Product>> {
+        - id: String
+        - estudiante: Estudiante
+        - horario: Horario
+        - materia: String
+        - tema: String
+        - modalidad: ModalidadTutoria
+        - enlaceVirtual: String
+        - aula: String
+        - recordatorioMinutos: int
+        - esGrupal: boolean
+        - cupoMaximo: int
+        - observaciones: String
+        - creadaEn: LocalDateTime
+        - estado: EstadoReserva
+        --
+        ~ Reserva(builder: ReservaBuilder)
+        + {static} builder(): ReservaBuilder
+        + confirmar(): void
+        + cancelar(): void
+        + reprogramar(): void
+        + getId(): String
+        + getEstudiante(): Estudiante
+        + getHorario(): Horario
+        + getMateria(): String
+        + getTema(): String
+        + getModalidad(): ModalidadTutoria
+        + getEnlaceVirtual(): String
+        + getAula(): String
+        + getRecordatorioMinutos(): int
+        + isEsGrupal(): boolean
+        + getCupoMaximo(): int
+        + getObservaciones(): String
+        + getEstado(): EstadoReserva
+    }
+
+    class ReservaBuilder <<Builder>> {
+        ~ id: String
+        ~ estudiante: Estudiante
+        ~ horario: Horario
+        ~ materia: String
+        ~ tema: String
+        ~ modalidad: ModalidadTutoria
+        ~ enlaceVirtual: String
+        ~ aula: String
+        ~ recordatorioMinutos: int
+        ~ esGrupal: boolean
+        ~ cupoMaximo: int
+        ~ observaciones: String
+        ~ creadaEn: LocalDateTime
+        ~ estadoInicial: EstadoReserva
+        --
+        + ReservaBuilder()
+        + conId(id: String): ReservaBuilder
+        + paraEstudiante(estudiante: Estudiante): ReservaBuilder
+        + enHorario(horario: Horario): ReservaBuilder
+        + conMateria(materia: String): ReservaBuilder
+        + conTema(tema: String): ReservaBuilder
+        + modalidadVirtual(): ReservaBuilder
+        + modalidadVirtual(enlace: String): ReservaBuilder
+        + modalidadPresencial(aula: String): ReservaBuilder
+        + conRecordatorioMinutos(min: int): ReservaBuilder
+        + grupal(cupoMaximo: int): ReservaBuilder
+        + individual(): ReservaBuilder
+        + conObservaciones(obs: String): ReservaBuilder
+        + conEstadoInicial(estado: EstadoReserva): ReservaBuilder
+        + creadaEn(fecha: LocalDateTime): ReservaBuilder
+        + build(): Reserva
+        - validarCamposObligatorios(): void
+        - validarReglasDeNegocio(): void
+    }
+}
+
+ReservaBuilder .down.> Reserva : <<construye (inmutable)>>
+Reserva "1" *-- "1" ModalidadTutoria
+Reserva "1" *-- "1" EstadoReserva
+
+note right of ReservaBuilder
+  <b>Fluent API & Validaciones:</b>
+  • Encadenamiento de métodos legibles.
+  • Inyección de defaults sensatos (virtual, 30m).
+  • <i>build()</i> valida campos requeridos e
+    inconsistencias (ej. presencial sin aula).
+end note
+
+@enduml

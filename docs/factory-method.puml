@@ -1,0 +1,120 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam classAttributeIconSize 0
+skinparam defaultFontName Segoe UI
+skinparam roundCorner 8
+skinparam shadowing false
+
+skinparam class {
+    BorderColor #6E1A2D
+    HeaderBackgroundColor #6E1A2D
+    FontColor #FFFFFF
+    HeaderFontColor #FFFFFF
+    AttributeFontColor #2C2C2C
+    OperationFontColor #2C2C2C
+    BackgroundColor #FDF8F9
+}
+
+skinparam interface {
+    BorderColor #4A0F1C
+    HeaderBackgroundColor #4A0F1C
+    FontColor #FFFFFF
+    HeaderFontColor #FFFFFF
+    AttributeFontColor #2C2C2C
+    OperationFontColor #2C2C2C
+    BackgroundColor #FDF8F9
+}
+
+skinparam note {
+    BackgroundColor #F6ECEF
+    BorderColor #C08497
+    FontColor #4A0F1C
+}
+
+title GesTutoUEES · Patrón Factory Method (Mecanismos de Notificación)
+
+package "edu.uees.tutorias.notification" {
+
+    interface Notificador <<Product>> {
+        + notificarReservaCreada(reserva: Reserva): void
+        + notificarReservaCancelada(reserva: Reserva): void
+        + getCanal(): String
+    }
+
+    class NotificadorCorreo <<ConcreteProduct>> {
+        + notificarReservaCreada(reserva: Reserva): void
+        + notificarReservaCancelada(reserva: Reserva): void
+        + getCanal(): String
+    }
+
+    class NotificadorSMS <<ConcreteProduct>> {
+        + notificarReservaCreada(reserva: Reserva): void
+        + notificarReservaCancelada(reserva: Reserva): void
+        + getCanal(): String
+    }
+
+    class NotificadorWhatsApp <<ConcreteProduct>> {
+        + notificarReservaCreada(reserva: Reserva): void
+        + notificarReservaCancelada(reserva: Reserva): void
+        + getCanal(): String
+    }
+
+    class NotificadorTeams <<ConcreteProduct>> {
+        + notificarReservaCreada(reserva: Reserva): void
+        + notificarReservaCancelada(reserva: Reserva): void
+        + getCanal(): String
+    }
+
+    abstract class CreadorNotificador <<Creator>> {
+        + {abstract} crearNotificador(): Notificador
+        + enviarNotificacionReserva(reserva: Reserva): void
+        + enviarNotificacionCancelacion(reserva: Reserva): void
+    }
+
+    class CreadorNotificadorCorreo <<ConcreteCreator>> {
+        + crearNotificador(): Notificador
+    }
+
+    class CreadorNotificadorSMS <<ConcreteCreator>> {
+        + crearNotificador(): Notificador
+    }
+
+    class CreadorNotificadorWhatsApp <<ConcreteCreator>> {
+        + crearNotificador(): Notificador
+    }
+
+    class CreadorNotificadorTeams <<ConcreteCreator>> {
+        + crearNotificador(): Notificador
+    }
+}
+
+' Relaciones de Realización (Productos)
+Notificador <|.. NotificadorCorreo
+Notificador <|.. NotificadorSMS
+Notificador <|.. NotificadorWhatsApp
+Notificador <|.. NotificadorTeams
+
+' Relaciones de Herencia (Creadores)
+CreadorNotificador <|-- CreadorNotificadorCorreo
+CreadorNotificador <|-- CreadorNotificadorSMS
+CreadorNotificador <|-- CreadorNotificadorWhatsApp
+CreadorNotificador <|-- CreadorNotificadorTeams
+
+' Dependencias de Creación (Factory Method)
+CreadorNotificadorCorreo ..> NotificadorCorreo : <<instancia>>
+CreadorNotificadorSMS ..> NotificadorSMS : <<instancia>>
+CreadorNotificadorWhatsApp ..> NotificadorWhatsApp : <<instancia>>
+CreadorNotificadorTeams ..> NotificadorTeams : <<instancia>>
+
+CreadorNotificador .right.> Notificador : <<usa>>
+
+note right of CreadorNotificadorTeams
+  <b>Extensibilidad OCP:</b>
+  Para soportar un nuevo canal (Teams),
+  se agregan <i>NotificadorTeams</i> y
+  <i>CreadorNotificadorTeams</i> sin tocar
+  el código existente.
+end note
+
+@enduml
