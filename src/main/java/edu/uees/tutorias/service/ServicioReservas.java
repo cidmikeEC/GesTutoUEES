@@ -9,13 +9,12 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Orquesta la lógica de negocio de las reservas.
- * Es la única clase que coordina horarios, reservas, persistencia y avisos.
+ * Orquesta la lógica de negocio de las reservas de tutorías.
+ * Coordina la verificación de horarios, persistencia y despacho de notificaciones.
  *
- * Depende de ABSTRACCIONES (Notificador, RepositorioReservas), no de
- * implementaciones concretas: eso es el Dependency Inversion Principle.
- * Las dependencias llegan por el constructor (inyección), así que el servicio
- * no las crea ni las conoce por dentro.
+ * Cumple con DIP (Dependency Inversion Principle) al depender de abstracciones
+ * ({@link RepositorioReservas} y {@link Notificador}), permitiendo intercambiar
+ * implementaciones o canales de notificación en tiempo de ejecución.
  */
 public class ServicioReservas {
 
@@ -28,34 +27,50 @@ public class ServicioReservas {
     }
 
     /**
-     * Reserva un horario para un estudiante.
-     * Regla de negocio clave: un horario ocupado NO se puede volver a reservar.
+     * Registra una reserva previamente construida (por ejemplo, mediante {@link edu.uees.tutorias.domain.ReservaBuilder}).
+     * Valida disponibilidad, bloquea el horario, confirma y notifica.
      */
-    public Reserva reservar(Estudiante estudiante, Horario horario) {
+    public Reserva registrarReserva(Reserva reserva) {
+        Horario horario = reserva.getHorario();
         if (!horario.estaDisponible()) {
-            throw new IllegalStateException(
-                    "El horario " + horario.getId() + " ya está ocupado");
+            throw new IllegalStateException("El horario " + horario.getId() + " ya está ocupado");
         }
-        horario.ocupar(); // primero bloqueo el horario (evita doble reserva)
-
-        Reserva reserva = new Reserva(generarId(), estudiante, horario);
+        horario.ocupar();
         reserva.confirmar();
         repositorio.guardar(reserva);
         notificador.notificarReservaCreada(reserva);
         return reserva;
     }
 
-    /** Cancela una reserva: libera el horario y avisa al docente. */
+    /**
+     * Sobrecarga de conveniencia para registrar una reserva básica a partir de estudiante y horario.
+     */
+    public Reserva reservar(Estudiante estudiante, Horario horario) {
+        Reserva reserva = Reserva.builder()
+                .conId(generarId())
+                .paraEstudiante(estudiante)
+                .enHorario(horario)
+                .conMateria(horario.getDocente().getEspecialidad())
+                .conTema("Consulta académica general")
+                .modalidadVirtual()
+                .build();
+        return registrarReserva(reserva);
+    }
+
+    /** Cancela una reserva: libera el horario y emite el aviso correspondiente. */
     public void cancelar(String idReserva) {
         Reserva reserva = repositorio.buscarPorId(idReserva)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "No existe la reserva " + idReserva));
-        reserva.cancelar(); // la propia reserva libera su horario
+                .orElseThrow(() -> new IllegalArgumentException("No existe la reserva " + idReserva));
+        reserva.cancelar(); // La propia entidad libera su horario internamente
         notificador.notificarReservaCancelada(reserva);
     }
 
     public List<Reserva> listarReservas() {
         return repositorio.listarTodas();
+    }
+
+    public Notificador getNotificador() {
+        return notificador;
     }
 
     private String generarId() {
