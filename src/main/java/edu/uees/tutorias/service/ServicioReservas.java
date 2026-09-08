@@ -3,6 +3,10 @@ package edu.uees.tutorias.service;
 import edu.uees.tutorias.domain.Estudiante;
 import edu.uees.tutorias.domain.Horario;
 import edu.uees.tutorias.domain.Reserva;
+import edu.uees.tutorias.events.EventoReserva;
+import edu.uees.tutorias.events.GestorEventosReserva;
+import edu.uees.tutorias.events.NotificacionReservaObserver;
+import edu.uees.tutorias.events.TipoEventoReserva;
 import edu.uees.tutorias.notification.Notificador;
 import edu.uees.tutorias.persistence.RepositorioReservas;
 import java.util.List;
@@ -10,25 +14,48 @@ import java.util.UUID;
 
 /**
  * Orquesta la lógica de negocio de las reservas de tutorías.
- * Coordina la verificación de horarios, persistencia y despacho de notificaciones.
+ * Coordina la verificación de disponibilidad de horarios, persistencia en repositorio
+ * y emisión desacoplada de eventos de ciclo de vida mediante el patrón Observer.
  *
- * Cumple con DIP (Dependency Inversion Principle) al depender de abstracciones
- * ({@link RepositorioReservas} y {@link Notificador}), permitiendo intercambiar
- * implementaciones o canales de notificación en tiempo de ejecución.
+ * Cumple con:
+ * - SRP: Se encarga únicamente del flujo de negocio de reservas.
+ * - OCP: Nuevos oyentes (auditoría, correo, calendario) se agregan como observadores sin modificar esta clase.
+ * - DIP: Depende de abstracciones ({@link RepositorioReservas} y {@link GestorEventosReserva}).
  */
 public class ServicioReservas {
 
     private final RepositorioReservas repositorio;
-    private final Notificador notificador;
+    private final GestorEventosReserva gestorEventos;
+    private Notificador notificadorCompatibilidad;
 
-    public ServicioReservas(RepositorioReservas repositorio, Notificador notificador) {
+    /**
+     * Constructor principal orientado a eventos (Patrón Observer).
+     */
+    public ServicioReservas(RepositorioReservas repositorio, GestorEventosReserva gestorEventos) {
+        if (repositorio == null) {
+            throw new IllegalArgumentException("El repositorio no puede ser nulo");
+        }
+        if (gestorEventos == null) {
+            throw new IllegalArgumentException("El gestor de eventos no puede ser nulo");
+        }
         this.repositorio = repositorio;
-        this.notificador = notificador;
+        this.gestorEventos = gestorEventos;
+    }
+
+    /**
+     * Constructor de compatibilidad con Ae2 (encapsula el notificador como un observador).
+     */
+    public ServicioReservas(RepositorioReservas repositorio, Notificador notificador) {
+        this(repositorio, new GestorEventosReserva());
+        if (notificador != null) {
+            this.notificadorCompatibilidad = notificador;
+            this.gestorEventos.suscribir(new NotificacionReservaObserver(notificador));
+        }
     }
 
     /**
      * Registra una reserva previamente construida (por ejemplo, mediante {@link edu.uees.tutorias.domain.ReservaBuilder}).
-     * Valida disponibilidad, bloquea el horario, confirma y notifica.
+     * Valida disponibilidad, bloquea el horario, confirma, persiste y emite el evento de confirmación.
      */
     public Reserva registrarReserva(Reserva reserva) {
         Horario horario = reserva.getHorario();
@@ -38,7 +65,14 @@ public class ServicioReservas {
         horario.ocupar();
         reserva.confirmar();
         repositorio.guardar(reserva);
-        notificador.notificarReservaCreada(reserva);
+
+        // Notificación reactiva desacoplada a todos los observadores
+        gestorEventos.notificar(new EventoReserva(
+                TipoEventoReserva.CONFIRMADA,
+                reserva,
+                "Reserva confirmada y persistida exitosamente"
+        ));
+
         return reserva;
     }
 
@@ -57,20 +91,36 @@ public class ServicioReservas {
         return registrarReserva(reserva);
     }
 
-    /** Cancela una reserva: libera el horario y emite el aviso correspondiente. */
+    /**
+     * Cancela una reserva: libera el horario, actualiza el estado y emite el evento correspondiente.
+     */
     public void cancelar(String idReserva) {
         Reserva reserva = repositorio.buscarPorId(idReserva)
                 .orElseThrow(() -> new IllegalArgumentException("No existe la reserva " + idReserva));
         reserva.cancelar(); // La propia entidad libera su horario internamente
-        notificador.notificarReservaCancelada(reserva);
+
+        // Emisión de evento para que los observadores (auditoría, correo, calendario) actúen
+        gestorEventos.notificar(new EventoReserva(
+                TipoEventoReserva.CANCELADA,
+                reserva,
+                "Reserva cancelada administrativamente o por el usuario"
+        ));
     }
 
     public List<Reserva> listarReservas() {
         return repositorio.listarTodas();
     }
 
+    public RepositorioReservas getRepositorio() {
+        return repositorio;
+    }
+
+    public GestorEventosReserva getGestorEventos() {
+        return gestorEventos;
+    }
+
     public Notificador getNotificador() {
-        return notificador;
+        return notificadorCompatibilidad;
     }
 
     private String generarId() {

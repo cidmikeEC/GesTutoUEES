@@ -70,8 +70,23 @@ public class ReservaBuilder {
         return this;
     }
 
+    public ReservaBuilder modalidadPresencial() {
+        this.modalidad = ModalidadTutoria.PRESENCIAL;
+        return this;
+    }
+
     public ReservaBuilder modalidadPresencial(String aula) {
         this.modalidad = ModalidadTutoria.PRESENCIAL;
+        this.aula = aula;
+        return this;
+    }
+
+    public ReservaBuilder conEnlaceVirtual(String enlaceVirtual) {
+        this.enlaceVirtual = enlaceVirtual;
+        return this;
+    }
+
+    public ReservaBuilder conAula(String aula) {
         this.aula = aula;
         return this;
     }
