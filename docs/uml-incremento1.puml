@@ -1,0 +1,207 @@
+@startuml
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam roundcorner 8
+skinparam shadowing false
+skinparam handwritten false
+
+skinparam class {
+    BackgroundColor #FFFFFF
+    BorderColor #6E1A2D
+    ArrowColor #6E1A2D
+    HeaderBackgroundColor #F6ECEF
+}
+
+title GesTutoUEES · Diagrama de Clases UML - Incremento 1 (Ae3)
+
+package "edu.uees.tutorias.facade" {
+    class AgendamientoTutoriaFacade {
+        - servicioReservas : ServicioReservas
+        - proveedorVideo : ProveedorVideoconferencia
+        + agendarTutoriaVirtual(est: Estudiante, hor: Horario, mat: String, tema: String, recMin: int) : Reserva
+        + agendarTutoriaPresencial(est: Estudiante, hor: Horario, mat: String, tema: String, aula: String) : Reserva
+        + cancelarTutoria(idReserva: String) : void
+        + listarTodasLasReservas() : List<Reserva>
+    }
+}
+
+package "edu.uees.tutorias.adapter" {
+    interface ProveedorVideoconferencia <<Target>> {
+        + crearSala(reserva: Reserva) : ReunionVirtual
+        + cancelarSala(idReunion: String) : boolean
+        + getNombreProveedor() : String
+    }
+
+    class ReunionVirtual <<Value Object>> {
+        - idReunion : String
+        - urlAcceso : String
+        - claveAcceso : String
+        - plataforma : String
+        - fechaHora : LocalDateTime
+        - duracionMinutos : int
+    }
+
+    class ZoomServiceAdapter <<Adapter>> {
+        - zoomSdk : ZoomSdkClient
+        + crearSala(reserva: Reserva) : ReunionVirtual
+        + cancelarSala(idReunion: String) : boolean
+    }
+}
+
+package "edu.uees.tutorias.adapter.external" {
+    class ZoomSdkClient <<Adaptee>> {
+        - apiKey : String
+        - apiSecret : String
+        + scheduleMeeting(topic: String, durationMins: int, hostEmail: String, waitingRoom: boolean) : ZoomMeetingPayload
+        + removeMeeting(meetingId: long) : boolean
+    }
+    class ZoomMeetingPayload {
+        - zoomNumericId : long
+        - joinUrl : String
+        - encryptedPassword : String
+        - statusCode : int
+    }
+}
+
+package "edu.uees.tutorias.events" {
+    enum TipoEventoReserva {
+        CREADA
+        CONFIRMADA
+        CANCELADA
+        REPROGRAMADA
+    }
+
+    class EventoReserva {
+        - tipo : TipoEventoReserva
+        - reserva : Reserva
+        - timestamp : LocalDateTime
+        - detalle : String
+    }
+
+    interface ReservaObserver <<Observer>> {
+        + onEvento(evento: EventoReserva) : void
+        + getNombre() : String
+    }
+
+    class GestorEventosReserva <<Subject>> {
+        - observadores : List<ReservaObserver>
+        + suscribir(observador: ReservaObserver) : void
+        + desuscribir(observador: ReservaObserver) : void
+        + notificar(evento: EventoReserva) : void
+    }
+
+    class NotificacionReservaObserver <<ConcreteObserver>> {
+        - notificador : Notificador
+        + onEvento(evento: EventoReserva) : void
+    }
+
+    class AuditoriaReservaObserver <<ConcreteObserver>> {
+        - bitacora : List<String>
+        + onEvento(evento: EventoReserva) : void
+        + getBitacora() : List<String>
+    }
+
+    class SincronizacionCalendarioObserver <<ConcreteObserver>> {
+        - eventosSincronizados : List<String>
+        + onEvento(evento: EventoReserva) : void
+    }
+}
+
+package "edu.uees.tutorias.service" {
+    class ServicioReservas {
+        - repositorio : RepositorioReservas
+        - gestorEventos : GestorEventosReserva
+        + registrarReserva(reserva: Reserva) : Reserva
+        + reservar(estudiante: Estudiante, horario: Horario) : Reserva
+        + cancelar(idReserva: String) : void
+        + listarReservas() : List<Reserva>
+    }
+}
+
+package "edu.uees.tutorias.domain" {
+    abstract class Usuario {
+        - id : String
+        - nombre : String
+        - correo : String
+        + describirRol() : String
+    }
+
+    class Estudiante extends Usuario {
+        - carrera : String
+    }
+
+    class Docente extends Usuario {
+        - especialidad : String
+    }
+
+    class Horario {
+        - id : String
+        - docente : Docente
+        - inicio : LocalDateTime
+        - fin : LocalDateTime
+        - disponible : boolean
+        + ocupar() : void
+        + liberar() : void
+    }
+
+    class Reserva {
+        - id : String
+        - estudiante : Estudiante
+        - horario : Horario
+        - materia : String
+        - tema : String
+        - modalidad : ModalidadTutoria
+        - enlaceVirtual : String
+        - aula : String
+        - estado : EstadoReserva
+        + confirmar() : void
+        + cancelar() : void
+    }
+
+    class ReservaBuilder <<Builder>> {
+        + conId(id: String) : ReservaBuilder
+        + paraEstudiante(est: Estudiante) : ReservaBuilder
+        + enHorario(hor: Horario) : ReservaBuilder
+        + modalidadVirtual() : ReservaBuilder
+        + modalidadPresencial(aula: String) : ReservaBuilder
+        + build() : Reserva
+    }
+}
+
+package "edu.uees.tutorias.notification" {
+    interface Notificador <<Product>> {
+        + notificarReservaCreada(r: Reserva) : void
+        + notificarReservaCancelada(r: Reserva) : void
+        + getCanal() : String
+    }
+}
+
+' Relaciones principales
+AgendamientoTutoriaFacade --> ServicioReservas : coordina >
+AgendamientoTutoriaFacade --> ProveedorVideoconferencia : usa >
+AgendamientoTutoriaFacade ..> ReservaBuilder : utiliza >
+
+ProveedorVideoconferencia <|.. ZoomServiceAdapter : realiza
+ZoomServiceAdapter --> ZoomSdkClient : delega (Adapts) >
+ZoomSdkClient ..> ZoomMeetingPayload : genera >
+ZoomServiceAdapter ..> ReunionVirtual : produce >
+
+ServicioReservas --> GestorEventosReserva : notifica eventos >
+ServicioReservas --> Reserva : administra >
+
+GestorEventosReserva o--> "0..*" ReservaObserver : gestiona
+ReservaObserver <|.. NotificacionReservaObserver
+ReservaObserver <|.. AuditoriaReservaObserver
+ReservaObserver <|.. SincronizacionCalendarioObserver
+
+NotificacionReservaObserver --> Notificador : despacha >
+EventoReserva --> Reserva : referencia
+EventoReserva --> TipoEventoReserva : clasifica
+
+ReservaBuilder ..> Reserva : construye
+Reserva --> Horario : asociado
+Reserva --> Estudiante : reservado por
+Horario --> Docente : asignado a
+
+@enduml
