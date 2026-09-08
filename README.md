@@ -1,159 +1,178 @@
 # GesTutoUEES · Sistema de gestión de tutorías
 
-Sistema de gestión y reserva de tutorías académicas universitarias desarrollado en Java 17 y Maven para la asignatura de **Diseño de Software (UCOM0310)** de la **Universidad Espíritu Santo (UEES)**.
+Sistema integral de gestión, reserva y auditoría de tutorías académicas universitarias desarrollado en Java 17 y Maven para la asignatura de **Diseño de Software (UCOM0310)** de la **Universidad Espíritu Santo (UEES)**.
 
 **Autor:** Miguel Iván Delgado Anazco  
-**Docente:** Ph.D. Jaime Sayago Heredia  
-**Repositorio GitHub:** [https://github.com/cidmikeEC/GesTutoUEES](https://github.com/cidmikeEC/GesTutoUEES)
+**Docente:** Ph.D. Jaime Paul Sayago Heredia  
+**Repositorio GitHub:** [https://github.com/cidmikeEC/GesTutoUEES](https://github.com/cidmikeEC/GesTutoUEES)  
+**Entrega:** Actividad 5 | Ae3 – Incremento 1 del proyecto integrador  
 
 ---
 
-## 🎯 Propósito de la Actividad (Ae2 · Semana 3)
+## 🎯 1. Propósito del Proyecto y Alcance del Incremento 1
 
-Implementar y comparar técnicamente los patrones creacionales **Factory Method** y **Builder** sobre el dominio de **GesTutoUEES**, resolviendo problemas concretos de escalabilidad, acoplamiento y legibilidad en la creación de objetos:
+Integrar diseño orientado a objetos y patrones de diseño (estructurales, de comportamiento y creacionales) en un incremento funcional, documentado y versionado de **GesTutoUEES**, de modo que las responsabilidades, dependencias y puntos de variación sean explícitos y desacoplados bajo principios SOLID.
 
-1. **Factory Method (Mecanismos de Notificación):** Desacoplar la lógica de despacho de avisos respecto a los canales concretos de comunicación (Correo institucional, SMS, WhatsApp y Microsoft Teams), garantizando el cumplimiento estricto del principio *Open/Closed (OCP)*.
-2. **Builder con Fluent API (Construcción de Reservas):** Erradicar el antipatrón de *constructor telescópico* en la entidad `Reserva`, soportando atributos obligatorios y opcionales con valores por defecto y validaciones de consistencia de negocio en tiempo de construcción.
-
----
-
-## 🏭 Parte A · Patrón Factory Method
-
-### 1. Problema inicial
-En la versión inicial, el sistema dependía directamente de una implementación fija (`NotificadorCorreo`). Al requerir nuevos canales de notificación (SMS, WhatsApp, Bots de Teams), la tentación tradicional es introducir condicionales `switch (canal)` dentro del servicio. Este enfoque:
-- Viola el principio **Open/Closed (OCP)**: cada nuevo canal obliga a modificar el código existente.
-- Aumenta el acoplamiento: el cliente debe conocer todas las clases concretas y cómo configurarlas.
-
-### 2. Solución con Factory Method
-Se define una jerarquía creadora (`CreadorNotificador`) donde la operación de negocio (`enviarNotificacionReserva`) opera contra el contrato abstracto `Notificador` (Product), delegando la instanciación al método fábrica abstracto `crearNotificador()`.
-
-```text
-edu.uees.tutorias.notification/
-├── Notificador.java                  (Product interface)
-├── NotificadorCorreo.java            (ConcreteProduct)
-├── NotificadorSMS.java               (ConcreteProduct)
-├── NotificadorWhatsApp.java          (ConcreteProduct)
-├── NotificadorTeams.java             (ConcreteProduct - Variante Extensible)
-├── CreadorNotificador.java           (Creator abstracto)
-├── CreadorNotificadorCorreo.java     (ConcreteCreator)
-├── CreadorNotificadorSMS.java        (ConcreteCreator)
-├── CreadorNotificadorWhatsApp.java   (ConcreteCreator)
-└── CreadorNotificadorTeams.java      (ConcreteCreator - Variante Extensible)
-```
-
-### 3. Evidencia de Extensibilidad (OCP)
-Para incorporar **Microsoft Teams** como canal institucional, **no se modificó una sola línea** de `Notificador.java`, `CreadorNotificador.java` ni de `ServicioReservas.java`. Únicamente se crearon dos nuevas clases (`NotificadorTeams` y `CreadorNotificadorTeams`).
-
-### Diagrama UML · Factory Method
-![Diagrama UML Factory Method](docs/factory-method.png)
+### Evolución respecto a incrementos anteriores (Ae1 y Ae2)
+- **Ae1 (Diseño Orientado a Objetos Base):** Modelado del dominio (`Usuario`, `Estudiante`, `Docente`, `Horario`, `Reserva`), asignación de responsabilidades bajo alta cohesión y bajo acoplamiento, aplicación de SOLID y arquitectura limpia en Maven.
+- **Ae2 (Patrones Creacionales):**
+  - **Builder:** `ReservaBuilder` con Fluent API, validaciones cruzadas e inmutabilidad (erradicando el constructor telescópico).
+  - **Factory Method:** Jerarquía creadora (`CreadorNotificador`) y de productos (`NotificadorTeams`, `NotificadorCorreo`, etc.) bajo OCP.
+- **Ae3 (Incremento 1 · Semana 4):**
+  - **Adapter (Estructural):** Integración con la API externa propietaria de videoconferencias (**Zoom Video Communications**), adaptando su SDK incompatible al contrato del dominio `ProveedorVideoconferencia`.
+  - **Observer (Comportamiento):** Desacoplamiento del ciclo de vida de la reserva (`CREADA`, `CONFIRMADA`, `CANCELADA`) mediante un gestor de eventos reactivo que despacha simultáneamente a **Notificaciones multicanal** (reutilizando Factory Method de Ae2), **Auditoría institucional inmutable** y **Sincronización de calendario 365**.
+  - **Facade (Estructural):** Fachada `AgendamientoTutoriaFacade` que unifica para clientes externos y controladores las operaciones complejas de agendamiento virtual y presencial en una sola interfaz limpia y cohesiva.
 
 ---
 
-## 🔨 Parte B · Patrón Builder con Fluent API
+## 🧭 2. Revisión y Justificación de Patrones Heredados (Ae2)
 
-### 1. Problema inicial (Constructor Telescópico)
-Al enriquecer la entidad `Reserva` con modalidades (Virtual vs Presencial), enlaces Teams, aulas físicas, cupos grupales, tiempos de recordatorio y observaciones, un constructor convencional requeriría más de 10 parámetros:
-```java
-// Antipatrón: constructor telescópico confuso y propenso a errores
-Reserva r = new Reserva("RES-1", est, hor, "Diseño", "Patrones", Modalidad.VIRTUAL, "https://...", null, 30, false, 1, "nota", LocalDateTime.now(), Estado.PENDIENTE);
-```
-Este diseño provoca:
-- Dificultad para recordar el orden de los argumentos booleanos y enteros.
-- Necesidad de pasar múltiples valores `null` para campos que no aplican según la modalidad.
-- Incapacidad de validar reglas cruzadas antes de crear el objeto.
-
-### 2. Solución con Builder
-Se implementó `ReservaBuilder` con una **Fluent API** encadenable, inmutabilidad garantizada en `Reserva` y validaciones estrictas en el método `.build()`:
-- **Campos obligatorios:** ID, Estudiante, Horario, Materia, Tema.
-- **Valores por defecto inteligentes:** Modalidad Virtual, recordatorio de 30 min, cupo individual de 1, enlace autogenerado.
-- **Validaciones de negocio:** Si es presencial exige aula física; si es grupal exige cupo $\ge 2$; tiempos de recordatorio no negativos.
-
-```java
-// Construcción legible, validada y expresiva
-Reserva reserva = Reserva.builder()
-        .conId("RES-2026-001")
-        .paraEstudiante(estudiante)
-        .enHorario(horario)
-        .conMateria("Estructura de Datos")
-        .conTema("Árboles AVL")
-        .modalidadVirtual()
-        .conRecordatorioMinutos(15)
-        .build();
-```
-
-### Diagrama UML · Builder
-![Diagrama UML Builder](docs/builder.png)
+| Patrón | Problema que resuelve en mi proyecto | ¿Se mantiene? | Justificación técnica |
+| :--- | :--- | :---: | :--- |
+| **Builder** | Antipatrón del constructor telescópico en la entidad `Reserva` (más de 10 atributos obligatorios y opcionales entre virtual y presencial). | **SÍ** | Permite construir instancias consistentes con valores por defecto inteligentes, validaciones estrictas en `.build()` e inmutabilidad de la entidad. |
+| **Factory Method** | Acoplamiento rígido a clases concretas al despachar avisos por diversos canales institucionales. | **SÍ** | Se preserva y se integra como suscriptor dentro del patrón Observer (`NotificacionReservaObserver`), despachando notificaciones a Teams, WhatsApp o Correo sin acoplar el servicio central. |
 
 ---
 
-## 📊 Parte C · Comparación Técnica de Patrones
+## 🧩 3. Patrones de Semana 4 Integrados (Incremento 1)
 
-| Criterio | Factory Method | Builder |
-| :--- | :--- | :--- |
-| **Problema que resuelve** | Acoplamiento a clases concretas al crear familias de objetos derivados de un contrato común. | Complejidad al construir objetos complejos con múltiples atributos obligatorios y opcionales. |
-| **Variabilidad principal** | **Qué tipo de objeto** concreto instanciar (diferentes tipos de notificadores polimórficos). | **Cómo se configura y ensambla** un mismo objeto paso a paso (variaciones de una misma `Reserva`). |
-| **Participantes clave** | `Product`, `ConcreteProduct`, `Creator`, `ConcreteCreator`. | `Product`, `Builder`, `ConcreteBuilder`, `Client` (y opcionalmente `Director`). |
-| **Ventaja principal** | Extensibilidad limpia bajo OCP (Open/Closed); polimorfismo en la creación. | Legibilidad (Fluent API), inmutabilidad del producto final y validación previa a instanciar. |
-| **Costo / consecuencia** | Proliferación de clases (requiere crear una subclase creadora por cada producto concreto). | Mayor código inicial de infraestructura (*boilerplate*) para el builder y sus métodos fluidos. |
-| **Cuándo utilizarlo** | Cuando el creador no sabe de antemano la clase exacta del objeto que debe instanciar. | Cuando un objeto tiene constructores con muchos parámetros (telescópico) o configuraciones cruzadas. |
-| **Cuándo evitarlo** | Cuando la jerarquía de productos es estática y no variará a lo largo del tiempo. | Cuando el objeto es simple, inmutable de 2–3 campos fijos o un simple DTO plano. |
+### Plantilla de Justificación de Patrones (Sección 7 del Requerimiento Oficial)
+
+| Elemento | Patrón 1: Observer (Comportamiento) | Patrón 2: Adapter (Estructural) | Patrón 3: Facade (Estructural) |
+| :--- | :--- | :--- | :--- |
+| **Problema real** | Acoplamiento 1-a-1 en `ServicioReservas`. Cuando una reserva cambia de estado, múltiples receptores independientes (notificaciones, auditoría, calendario) necesitan actuar sin que el servicio los conozca. | Incompatibilidad de interfaz al conectar con la API en la nube de Zoom (`ZoomSdkClient`), que maneja parámetros en inglés y tipos numéricos ajenos a nuestro dominio. | El cliente (consola/controlador) debe conocer y orquestar múltiples pasos y subsistemas (disponibilidad, Zoom adapter, builder, repositorio y eventos). |
+| **Contexto** | Ciclo de vida de la tutoría universitaria (creación, confirmación, cancelación). | Agendamiento de tutorías virtuales universitarias mediante salas generadas dinámicamente. | Capa de aplicación que expone los casos de uso hacia clientes externos (CLI, API REST). |
+| **Qué cambia** | Los suscriptores que reaccionan a los eventos (se pueden agregar más canales o analítica). | La implementación concreta del proveedor de videollamadas (Zoom, Google Meet, Teams). | La implementación interna y orden de orquestación de los subsistemas. |
+| **Qué permanece estable** | El modelo de reserva y la interfaz `ReservaObserver` con su contrato `onEvento()`. | El contrato abstracto del dominio `ProveedorVideoconferencia` y el Value Object `ReunionVirtual`. | Las operaciones unificadas de alto nivel de la fachada hacia el cliente. |
+| **Patrón seleccionado** | **Observer** | **Adapter** | **Facade** |
+| **Clases / Interfaces** | `GestorEventosReserva`, `ReservaObserver`, `EventoReserva`, `NotificacionReservaObserver`, `AuditoriaReservaObserver`, `SincronizacionCalendarioObserver`. | `ProveedorVideoconferencia`, `ReunionVirtual`, `ZoomServiceAdapter`, `ZoomSdkClient`, `ZoomMeetingPayload`. | `AgendamientoTutoriaFacade`. |
+| **Principio SOLID** | **OCP** (Abierto a nuevos observadores sin modificar el servicio) y **SRP** (responsabilidades separadas). | **DIP** (El dominio depende de su propia interfaz abstracta) e **ISP** (contrato específico y mínimo). | **Principio de Menor Conocimiento (Ley de Deméter)** y bajo acoplamiento cliente-subsistema. |
+| **Beneficio esperado** | Desacoplamiento total; bitácora de auditoría inmutable en tiempo real; cero impacto al agregar nuevos oyentes. | Aislamiento completo del SDK de Zoom; posibilidad de intercambiar proveedor sin tocar el dominio. | Interfaz extraordinariamente simple para el cliente; código limpio y mantenible. |
+| **Costo / compromiso** | Indirección en la ejecución y gestión de orden de observadores. | Sobrecarga de traducción de objetos y creación de adaptadores por cada proveedor externo. | La fachada puede convertirse en un cuello de botella si se sobrecarga de lógica de negocio que no le corresponde. |
+| **Cómo se verificó** | Suite de pruebas `ObserverTest.java` (4 pruebas unitarias automatizadas). | Suite de pruebas `AdapterTest.java` (3 pruebas unitarias automatizadas). | Suite de pruebas `FacadeTest.java` (3 pruebas unitarias automatizadas). |
 
 ---
 
-## 🏗️ Estructura del Repositorio
+## 🏛️ 4. Principios SOLID, Cohesión y Acoplamiento
+
+1. **Single Responsibility Principle (SRP):**
+   - `ServicioReservas` solo orquesta reglas de negocio de reserva de horarios; delega la notificación a `GestorEventosReserva`.
+   - `AuditoriaReservaObserver` únicamente registra trazas institucionales inmutables para acreditación.
+   - `ZoomServiceAdapter` se encarga exclusivamente de traducir entre contratos.
+2. **Open/Closed Principle (OCP):**
+   - Nuevos receptores de eventos (por ejemplo, métricas estadísticas o alertas a directores de carrera) se conectan implementando `ReservaObserver` sin tocar una sola línea de código existente.
+3. **Liskov Substitution Principle (LSP):**
+   - Cualquier implementación de `ProveedorVideoconferencia` puede sustituir a `ZoomServiceAdapter` transparentemente.
+4. **Interface Segregation Principle (ISP):**
+   - `ProveedorVideoconferencia` solo expone métodos específicos de salas virtuales, sin mezclar lógica de mensajería o usuarios.
+5. **Dependency Inversion Principle (DIP):**
+   - Los módulos de alto nivel (`AgendamientoTutoriaFacade`, `ServicioReservas`) dependen de interfaces abstractas (`ProveedorVideoconferencia`, `ReservaObserver`), nunca de librerías concretas de terceros como `ZoomSdkClient`.
+
+---
+
+## 📊 5. Diagrama UML de Clases (Incremento 1)
+
+El siguiente diagrama refleja la arquitectura completa con sus paquetes, clases, realizaciones, dependencias y multiplicidades:
+
+![Diagrama UML Incremento 1](docs/uml-incremento1.png)
+
+*Archivo fuente en PlantUML:* [`docs/uml-incremento1.puml`](docs/uml-incremento1.puml)
+
+---
+
+## 🏗️ 6. Estructura del Repositorio y Paquetes
 
 ```text
 sistema-tutorias/
-├── pom.xml
+├── pom.xml                                   # Configuración de compilación Java 17 y JUnit 5
+├── README.md                                 # Documentación técnica completa
 ├── docs/
-│   ├── factory-method.puml
-│   ├── factory-method.png
-│   ├── builder.puml
-│   ├── builder.png
-│   ├── modelo-clases.puml
-│   └── modelo-clases.png
-├── src/
-│   ├── main/java/edu/uees/tutorias/
-│   │   ├── Main.java
-│   │   ├── domain/
-│   │   │   ├── Usuario.java, Estudiante.java, Docente.java
-│   │   │   ├── Horario.java, EstadoReserva.java, ModalidadTutoria.java
-│   │   │   ├── Reserva.java
-│   │   │   └── ReservaBuilder.java
-│   │   ├── notification/
-│   │   │   ├── Notificador.java
-│   │   │   ├── NotificadorCorreo.java, NotificadorSMS.java
-│   │   │   ├── NotificadorWhatsApp.java, NotificadorTeams.java
-│   │   │   ├── CreadorNotificador.java
-│   │   │   ├── CreadorNotificadorCorreo.java, CreadorNotificadorSMS.java
-│   │   │   └── CreadorNotificadorWhatsApp.java, CreadorNotificadorTeams.java
-│   │   ├── persistence/
-│   │   │   ├── RepositorioReservas.java
-│   │   │   └── RepositorioReservasEnMemoria.java
-│   │   └── service/
-│   │       └── ServicioReservas.java
-│   └── test/java/edu/uees/tutorias/
-│       ├── FactoryMethodTest.java
-│       ├── ReservaBuilderTest.java
-│       └── ServicioReservasTest.java
+│   ├── uml-incremento1.puml                  # Diagrama PlantUML formal del Incremento 1
+│   ├── uml-incremento1.png                   # Renderizado gráfico de alta resolución
+│   ├── factory-method.png, builder.png       # Evidencias gráficas de Ae2
+│   └── modelo-clases.png                     # Diagrama base de Ae1
+└── src/
+    ├── main/java/edu/uees/tutorias/
+    │   ├── Main.java                         # Demostración interactiva guiada por consola
+    │   ├── adapter/                          # [NUEVO - Semana 4] Patrón Adapter
+    │   │   ├── ProveedorVideoconferencia.java (Target)
+    │   │   ├── ReunionVirtual.java           (Value Object del dominio)
+    │   │   ├── ZoomServiceAdapter.java       (Adapter)
+    │   │   └── external/
+    │   │       ├── ZoomSdkClient.java        (Adaptee externo simulado)
+    │   │       └── ZoomMeetingPayload.java   (DTO de respuesta propietaria)
+    │   ├── domain/                           # Clases de entidad del dominio
+    │   │   ├── Usuario.java, Estudiante.java, Docente.java
+    │   │   ├── Horario.java, EstadoReserva.java, ModalidadTutoria.java
+    │   │   ├── Reserva.java
+    │   │   └── ReservaBuilder.java           (Builder con Fluent API)
+    │   ├── events/                           # [NUEVO - Semana 4] Patrón Observer
+    │   │   ├── TipoEventoReserva.java        (Enum de eventos del ciclo de vida)
+    │   │   ├── EventoReserva.java            (Objeto inmutable de evento)
+    │   │   ├── ReservaObserver.java          (Observer)
+    │   │   ├── GestorEventosReserva.java     (Subject / Event Manager)
+    │   │   ├── NotificacionReservaObserver.java (Concrete Observer - integra Factory Method)
+    │   │   ├── AuditoriaReservaObserver.java    (Concrete Observer - bitácora inmutable)
+    │   │   └── SincronizacionCalendarioObserver.java (Concrete Observer - buzón 365)
+    │   ├── facade/                           # [NUEVO - Semana 4] Patrón Facade
+    │   │   └── AgendamientoTutoriaFacade.java (Fachada unificada de alto nivel)
+    │   ├── notification/                     # Patrón Factory Method (Ae2)
+    │   │   ├── Notificador.java              (Product)
+    │   │   ├── NotificadorCorreo.java, NotificadorSMS.java, NotificadorWhatsApp.java, NotificadorTeams.java
+    │   │   ├── CreadorNotificador.java       (Creator)
+    │   │   └── CreadorNotificadorTeams.java, etc. (Concrete Creators)
+    │   ├── persistence/                      # Repositorios de persistencia
+    │   │   ├── RepositorioReservas.java
+    │   │   └── RepositorioReservasEnMemoria.java
+    │   └── service/                          # Lógica orquestadora de negocio
+    │       └── ServicioReservas.java         (Integrado con GestorEventos)
+    └── test/java/edu/uees/tutorias/
+        ├── AdapterTest.java                  # [NUEVO] 3 tests unitarios del Adapter
+        ├── ObserverTest.java                 # [NUEVO] 4 tests unitarios del Observer
+        ├── FacadeTest.java                   # [NUEVO] 3 tests unitarios del Facade
+        ├── FactoryMethodTest.java            # 5 tests unitarios de Ae2
+        ├── ReservaBuilderTest.java           # 7 tests unitarios de Ae2
+        └── ServicioReservasTest.java         # 3 tests unitarios de integración
 ```
 
 ---
 
-## 🚀 Compilación y Pruebas
+## 🚀 7. Compilación, Pruebas y Ejecución
 
 Requisitos: **JDK 17** y **Maven 3.8+**.
 
-```bash
-# Compilar y ejecutar pruebas unitarias automatizadas (15 tests)
+```powershell
+# 1. Compilar y ejecutar la suite completa de pruebas automatizadas (25 tests en verde)
 mvn clean test
 
-# Ejecutar la demostración interactiva por consola
+# 2. Ejecutar la demostración interactiva guiada por consola
 java -cp target/classes edu.uees.tutorias.Main
+```
+
+### Resultado de la suite de pruebas automatizadas:
+```text
+[INFO] Running edu.uees.tutorias.AdapterTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Running edu.uees.tutorias.FacadeTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Running edu.uees.tutorias.FactoryMethodTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Running edu.uees.tutorias.ObserverTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Running edu.uees.tutorias.ReservaBuilderTest
+[INFO] Tests run: 7, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Running edu.uees.tutorias.ServicioReservasTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0
+[INFO] 
+[INFO] Results:
+[INFO] Tests run: 25, Failures: 0, Errors: 0, Skipped: 0
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
 ```
 
 ---
 
-## 📝 Declaración de uso ético de IA
+## 📝 8. Declaración de uso ético de IA
 
-Durante el desarrollo de esta actividad utilicé herramientas de inteligencia artificial como apoyo para la estructuración de patrones creacionales, generación de diagramas PlantUML y redacción técnica de la comparativa. Revisé, probé, refactoricé y comprendí todo el código Java y las decisiones de diseño presentadas, y puedo explicar y defender técnicamente cada solución.
+Durante el desarrollo de este incremento utilicé herramientas de inteligencia artificial como apoyo en la conceptualización arquitectónica de patrones estructurales y de comportamiento, estructuración sintáctica de diagramas PlantUML y redacción comparativa. Revisé, diseñé, probé, refactoricé y comprendí la totalidad del código Java, sus pruebas unitarias y las decisiones de diseño presentadas, asumiendo plena responsabilidad técnica sobre el proyecto.
