@@ -53,55 +53,53 @@ public class LiquidacionTutoriasService {
         detalleBitacora.append("LIQUIDACION::DOC=").append(docente.getId()).append("|ITEMS=");
 
         for (Reserva reserva : reservas) {
-            if (reserva != null) {
-                // Condicionales anidados profundos (pendiente de simplificar en siguiente paso)
-                if (reserva.getHorario() != null && reserva.getHorario().getDocente() != null) {
-                    if (reserva.getHorario().getDocente().getId().equals(docente.getId())) {
-                        if (reserva.getEstado() == EstadoReserva.CONFIRMADA) {
-                            double honorarioReserva = TARIFA_HORA_BASE;
-                            if (docente.getEspecialidad() != null) {
-                                if (docente.getEspecialidad().equalsIgnoreCase("Estructura de Datos") ||
-                                        docente.getEspecialidad().equalsIgnoreCase("Diseño de Software")) {
-                                    honorarioReserva = TARIFA_HORA_ESPECIALIZADA;
-                                }
-                            }
+            // Cláusulas de guarda tempranas para aplanar la pirámide de anidación
+            if (reserva == null) {
+                continue;
+            }
+            if (reserva.getHorario() == null || reserva.getHorario().getDocente() == null) {
+                continue;
+            }
+            if (!reserva.getHorario().getDocente().getId().equals(docente.getId())) {
+                continue;
+            }
 
-                            if (reserva.isEsGrupal()) {
-                                if (reserva.getCupoMaximo() > 1) {
-                                    honorarioReserva = honorarioReserva * (1.0 + ((reserva.getCupoMaximo() - 1) * FACTOR_BONIFICACION_CUPO_GRUPAL));
-                                }
-                            }
-
-                            if (reserva.getModalidad() == ModalidadTutoria.VIRTUAL) {
-                                if (reserva.getRecordatorioMinutos() > 0) {
-                                    honorarioReserva = honorarioReserva + COMPENSACION_CONECTIVIDAD_VIRTUAL;
-                                }
-                            }
-
-                            totalHonorarios = totalHonorarios + honorarioReserva;
-                            totalTutoriasProcesadas++;
-                            detalleBitacora.append("[").append(reserva.getId()).append(":OK:$").append(String.format(java.util.Locale.US, "%.2f", honorarioReserva)).append("]");
-                        } else {
-                            if (reserva.getEstado() == EstadoReserva.CANCELADA) {
-                                if (reserva.getCreadaEn() != null && reserva.getHorario().getInicio() != null) {
-                                    long horasAnticipacion = Duration.between(reserva.getCreadaEn(), reserva.getHorario().getInicio()).toHours();
-                                    if (horasAnticipacion < HORAS_ANTICIPACION_CANCELACION_MINIMA) {
-                                        double montoPenalizacion = TARIFA_BASE_PENALIZACION * PORCENTAJE_CARGO_PENALIZACION;
-                                        totalPenalizaciones = totalPenalizaciones + montoPenalizacion;
-                                        totalHonorarios = totalHonorarios + (montoPenalizacion * PORCENTAJE_COMPENSACION_DOCENTE_PENALIZACION);
-                                        totalTutoriasProcesadas++;
-                                        detalleBitacora.append("[").append(reserva.getId()).append(":CANCEL_TARDIA:PEN=$").append(String.format(java.util.Locale.US, "%.2f", montoPenalizacion)).append("]");
-                                    } else {
-                                        totalTutoriasProcesadas++;
-                                        detalleBitacora.append("[").append(reserva.getId()).append(":CANCEL_OPORTUNA:$0.00]");
-                                    }
-                                }
-                            } else {
-                                detalleBitacora.append("[").append(reserva.getId()).append(":IGNORADA]");
-                            }
-                        }
+            if (reserva.getEstado() == EstadoReserva.CONFIRMADA) {
+                double honorarioReserva = TARIFA_HORA_BASE;
+                if (docente.getEspecialidad() != null) {
+                    if (docente.getEspecialidad().equalsIgnoreCase("Estructura de Datos") ||
+                            docente.getEspecialidad().equalsIgnoreCase("Diseño de Software")) {
+                        honorarioReserva = TARIFA_HORA_ESPECIALIZADA;
                     }
                 }
+
+                if (reserva.isEsGrupal() && reserva.getCupoMaximo() > 1) {
+                    honorarioReserva = honorarioReserva * (1.0 + ((reserva.getCupoMaximo() - 1) * FACTOR_BONIFICACION_CUPO_GRUPAL));
+                }
+
+                if (reserva.getModalidad() == ModalidadTutoria.VIRTUAL && reserva.getRecordatorioMinutos() > 0) {
+                    honorarioReserva = honorarioReserva + COMPENSACION_CONECTIVIDAD_VIRTUAL;
+                }
+
+                totalHonorarios = totalHonorarios + honorarioReserva;
+                totalTutoriasProcesadas++;
+                detalleBitacora.append("[").append(reserva.getId()).append(":OK:$").append(String.format(java.util.Locale.US, "%.2f", honorarioReserva)).append("]");
+            } else if (reserva.getEstado() == EstadoReserva.CANCELADA) {
+                if (reserva.getCreadaEn() != null && reserva.getHorario().getInicio() != null) {
+                    long horasAnticipacion = Duration.between(reserva.getCreadaEn(), reserva.getHorario().getInicio()).toHours();
+                    if (horasAnticipacion < HORAS_ANTICIPACION_CANCELACION_MINIMA) {
+                        double montoPenalizacion = TARIFA_BASE_PENALIZACION * PORCENTAJE_CARGO_PENALIZACION;
+                        totalPenalizaciones = totalPenalizaciones + montoPenalizacion;
+                        totalHonorarios = totalHonorarios + (montoPenalizacion * PORCENTAJE_COMPENSACION_DOCENTE_PENALIZACION);
+                        totalTutoriasProcesadas++;
+                        detalleBitacora.append("[").append(reserva.getId()).append(":CANCEL_TARDIA:PEN=$").append(String.format(java.util.Locale.US, "%.2f", montoPenalizacion)).append("]");
+                    } else {
+                        totalTutoriasProcesadas++;
+                        detalleBitacora.append("[").append(reserva.getId()).append(":CANCEL_OPORTUNA:$0.00]");
+                    }
+                }
+            } else {
+                detalleBitacora.append("[").append(reserva.getId()).append(":IGNORADA]");
             }
         }
 
