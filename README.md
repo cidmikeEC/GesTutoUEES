@@ -176,3 +176,63 @@ java -cp target/classes edu.uees.tutorias.Main
 ## 📝 8. Declaración de uso ético de IA
 
 Durante el desarrollo de este incremento utilicé herramientas de inteligencia artificial como apoyo en la conceptualización arquitectónica de patrones estructurales y de comportamiento, estructuración sintáctica de diagramas PlantUML y redacción comparativa. Revisé, diseñé, probé, refactoricé y comprendí la totalidad del código Java, sus pruebas unitarias y las decisiones de diseño presentadas, asumiendo plena responsabilidad técnica sobre el proyecto.
+
+---
+
+## 🔄 9. Actividad 2 | Ae4 – Kata de Refactorización: Antes y Después
+
+En esta etapa se ejecutó una kata rigurosa y disciplinada de refactorización sobre el módulo de liquidación económica y nómina docente (`LiquidacionTutoriasService.java`), demostrando la capacidad de identificar problemas de diseño, aplicar transformaciones atómicas sin alterar el comportamiento observable y respaldar cada paso con pruebas automatizadas y commits descriptivos en Git.
+
+### 📌 Matriz de Code Smells Identificados (Estado ANTES)
+
+| Code Smell | Localización inicial | Justificación técnica del problema | Refactorización aplicada |
+| :--- | :--- | :--- | :--- |
+| **Magic Numbers** | Líneas 61, 65, 71, 77, 88, 89, 91, 108 | Literales numéricos quemados (`25.0`, `30.0`, `15.0`, `2.50`, `0.15`, `24`, `0.50`, `0.10`) que oscurecían la semántica de negocio y encarecían el mantenimiento. | **Replace Magic Number with Symbolic Constant:** Extracción de 9 constantes privadas estáticas y descriptivas. |
+| **Poor Naming & Primitive Obsession** | Parámetros y variables locales (`d`, `rList`, `tot`, `pen`, `cnt`, `sb`, `val`, `hrs`, `p`, `net`) | Abreviaturas crípticas sin carga semántica de dominio que dificultaban la lectura y comprensión. | **Rename Variable / Parameter:** Renombrado expresivo (`docente`, `reservas`, `totalHonorarios`, `totalPenalizaciones`, `detalleBitacora`, etc.). |
+| **Nested Conditionals (Arrow Anti-Pattern)** | Ciclo principal de procesamiento | Anidación de hasta 5 niveles de `if` en forma de flecha (`> > > >`), generando alta complejidad ciclomática e ilegibilidad. | **Replace Nested Conditional with Guard Clauses:** Cláusulas de guarda tempranas (`continue`) para aplanar el flujo. |
+| **Long Method & Divergent Change** | Método `procesarLiquidacionDocente` (120+ líneas) | Un único método asumía validación, cálculos base, bonificaciones grupales, compensación virtual, penalizaciones por mora y serialización de bitácora. | **Extract Method:** Descomposición en 5 métodos cohesivos especializados (`calcularHonorarioConfirmada`, `esCancelacionTardia`, `calcularMontoPenalizacion`, etc.). |
+| **Feature Envy** | Acceso exhaustivo e invasivo a datos internos de `Reserva` y `Horario` | El servicio navegaba cadenas profundas de llamadas (`r.getHorario().getDocente().getId()`) violando la Ley de Deméter. | **Extract Method / Hide Delegate:** Encapsulamiento en método auxiliar de verificación `perteneceADocente()`. |
+
+### 🧪 Línea Base y Preservación del Comportamiento (Suite JUnit 5)
+
+Antes de alterar una sola línea de código fuente, se construyó una suite de 4 casos de prueba determinísticos en `LiquidacionTutoriasTest.java`, cubriendo la totalidad de ramificaciones del negocio:
+
+1. **Caso 1 (Tutoría Individual Virtual Confirmada - Docente Especializado):**
+   - Tarifa especializada ($30.00) + Bono virtual ($2.50) = **$32.50**. Penalización: **$0.00**. Neto: **$32.50**.
+2. **Caso 2 (Tutoría Grupal Presencial Confirmada):**
+   - Tarifa especializada ($30.00) × Factor grupal 3 cupos (1 + 2×0.15 = 1.30) = **$39.00**. Neto: **$39.00**.
+3. **Caso 3 (Tutoría Cancelada Tardía con Penalización):**
+   - Penalización: $15.00 × 50% = **$7.50**. Compensación docente: $7.50 × 50% = **$3.75**. Deducción administrativa: $7.50 × 10% = $0.75. Neto: **$3.00**.
+4. **Caso 4 (Cancelación Oportuna y Docente sin Actividad):**
+   - Cancelación con >24h: Penalización $0.00. Lista vacía: Estado `SIN_ACTIVIDAD` con totales en $0.00.
+
+**Resultado de ejecución:**
+```text
+[INFO] Running edu.uees.tutorias.LiquidacionTutoriasTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.031 s -- in edu.uees.tutorias.LiquidacionTutoriasTest
+[INFO] 
+[INFO] Results:
+[INFO] Tests run: 29, Failures: 0, Errors: 0, Skipped: 0
+[INFO] BUILD SUCCESS
+```
+
+### 📊 Comparativa Multidimensional: ANTES vs. DESPUÉS
+
+| Métrica / Dimensión | Estado Inicial (ANTES) | Estado Final (DESPUÉS) | Impacto Técnico |
+| :--- | :--- | :--- | :--- |
+| **Líneas del método principal** | 82 líneas | 44 líneas | **-46.3%** (mayor concisión y claridad de lectura) |
+| **Nivel máximo de anidación** | 5 niveles (Arrow Anti-Pattern) | 2 niveles (Flujo lineal con guardas) | Reducción dramática de carga cognitiva |
+| **Complejidad Ciclomática (v(G))** | 18 (Riesgo alto de defectos) | 6 en método orquestador / ≤3 en métodos auxiliares | Código altamente testeable y mantenible |
+| **Constantes simbólicas** | 0 (8 números mágicos quemados) | 9 constantes de dominio bien tipadas | Cambio de tarifas centralizado en un solo lugar |
+| **Métodos en el servicio** | 1 método monolítico | 6 métodos con Responsabilidad Única (SRP) | Cohesión funcional y fácil reutilización |
+| **Comportamiento observable** | 4 pruebas pasando | 4 pruebas pasando (29 suite total) | **100% de preservación verificada** |
+
+### 📜 Historial de Commits Incrementales de la Kata (Git Log)
+
+```text
+* 17c7106 refactor: extraer metodos cohesivos para calculo de honorarios y politicas de penalizacion
+* 6c9af7f refactor: simplificar flujo de control mediante clausulas de guarda
+* 6cab5d9 refactor: renombrar variables y metodos para expresar intencion de dominio
+* bb1afca refactor: extraer constantes simbolicas para tarifas y politicas de penalizacion
+* dd374f6 chore: registrar linea base de Ae4
+```
