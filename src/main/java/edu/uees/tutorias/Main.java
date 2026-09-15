@@ -21,6 +21,8 @@ import edu.uees.tutorias.notification.CreadorNotificadorWhatsApp;
 import edu.uees.tutorias.notification.Notificador;
 import edu.uees.tutorias.persistence.RepositorioReservas;
 import edu.uees.tutorias.persistence.RepositorioReservasEnMemoria;
+import edu.uees.tutorias.service.LiquidacionDocenteDTO;
+import edu.uees.tutorias.service.LiquidacionTutoriasService;
 import edu.uees.tutorias.service.ServicioReservas;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -182,7 +184,24 @@ public class Main {
             System.out.println("  " + log);
         }
 
-        imprimirEncabezado("INCREMENTO 1 EJECUTADO EXITOSAMENTE — UEES 2026");
+        // =========================================================================
+        // PARTE 4: DEMOSTRACIÓN DE LA KATA Ae4 (Liquidación y Nómina Docente)
+        // =========================================================================
+        imprimirSeccion("PARTE 4: DEMOSTRACIÓN DE LA KATA Ae4 (Servicio de Liquidación y Nómina)");
+        LiquidacionTutoriasService servicioLiquidacion = new LiquidacionTutoriasService();
+
+        List<Reserva> reservasParaLiquidacion = List.of(tutoriaVirtual, tutoriaPresencial);
+        LiquidacionDocenteDTO liquidacionDocente2 = servicioLiquidacion.procesarLiquidacionDocente(docente2, reservasParaLiquidacion);
+
+        System.out.println("💼 Estado de Liquidación Docente (Servicio Refactorizado):");
+        System.out.println("   • Docente: " + liquidacionDocente2.getNombreDocente() + " (ID: " + liquidacionDocente2.getIdDocente() + ")");
+        System.out.println("   • Tutorías procesadas: " + liquidacionDocente2.getTutoriasProcesadas());
+        System.out.printf(java.util.Locale.US, "   • Total honorarios devengados: $%.2f%n", liquidacionDocente2.getTotalHonorarios());
+        System.out.printf(java.util.Locale.US, "   • Total penalizaciones retenidas: $%.2f%n", liquidacionDocente2.getTotalPenalizaciones());
+        System.out.printf(java.util.Locale.US, "   • Monto neto liquidado: $%.2f%n", liquidacionDocente2.getTotalNeto());
+        System.out.println("   • Detalle trazable: " + liquidacionDocente2.getDetalleLiquidacion());
+
+        imprimirEncabezado("INCREMENTO 1 & KATA Ae4 EJECUTADOS EXITOSAMENTE — UEES 2026");
     }
 
     private static void imprimirEncabezado(String titulo) {
