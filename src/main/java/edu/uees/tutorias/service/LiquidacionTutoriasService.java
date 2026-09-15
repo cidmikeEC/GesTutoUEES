@@ -22,9 +22,19 @@ import java.util.List;
  */
 public class LiquidacionTutoriasService {
 
+    // Constantes simbólicas para erradicar Magic Numbers (Refactorización 1)
+    private static final double TARIFA_HORA_BASE = 25.0;
+    private static final double TARIFA_HORA_ESPECIALIZADA = 30.0;
+    private static final double COMPENSACION_CONECTIVIDAD_VIRTUAL = 2.50;
+    private static final double FACTOR_BONIFICACION_CUPO_GRUPAL = 0.15;
+    private static final long HORAS_ANTICIPACION_CANCELACION_MINIMA = 24;
+    private static final double TARIFA_BASE_PENALIZACION = 15.0;
+    private static final double PORCENTAJE_CARGO_PENALIZACION = 0.50;
+    private static final double PORCENTAJE_COMPENSACION_DOCENTE_PENALIZACION = 0.50;
+    private static final double PORCENTAJE_DEDUCCION_ADMINISTRATIVA = 0.10;
+
     /**
      * Procesa la liquidación económica de las tutorías de un docente en un periodo.
-     * CÓDIGO INICIAL (ANTES DE LA KATA).
      */
     public LiquidacionDocenteDTO procesarLiquidacionDocente(Docente d, List<Reserva> rList) {
         // Validación preliminar con excepciones sin estandarizar
@@ -48,26 +58,23 @@ public class LiquidacionTutoriasService {
                 if (r.getHorario() != null && r.getHorario().getDocente() != null) {
                     if (r.getHorario().getDocente().getId().equals(d.getId())) {
                         if (r.getEstado() == EstadoReserva.CONFIRMADA) {
-                            // Cálculo de honorarios con números mágicos
-                            double val = 25.0; // Tarifa base por hora quemada
+                            double val = TARIFA_HORA_BASE;
                             if (d.getEspecialidad() != null) {
                                 if (d.getEspecialidad().equalsIgnoreCase("Estructura de Datos") ||
                                         d.getEspecialidad().equalsIgnoreCase("Diseño de Software")) {
-                                    val = 30.0; // Tarifa especializada quemada
+                                    val = TARIFA_HORA_ESPECIALIZADA;
                                 }
                             }
 
-                            // Factor grupal quemado
                             if (r.isEsGrupal()) {
                                 if (r.getCupoMaximo() > 1) {
-                                    val = val * (1.0 + ((r.getCupoMaximo() - 1) * 0.15)); // Bonificación grupal mágica
+                                    val = val * (1.0 + ((r.getCupoMaximo() - 1) * FACTOR_BONIFICACION_CUPO_GRUPAL));
                                 }
                             }
 
-                            // Factor virtual con recordatorio
                             if (r.getModalidad() == ModalidadTutoria.VIRTUAL) {
                                 if (r.getRecordatorioMinutos() > 0) {
-                                    val = val + 2.50; // Compensación de conectividad quemada
+                                    val = val + COMPENSACION_CONECTIVIDAD_VIRTUAL;
                                 }
                             }
 
@@ -76,23 +83,20 @@ public class LiquidacionTutoriasService {
                             sb.append("[").append(r.getId()).append(":OK:$").append(String.format(java.util.Locale.US, "%.2f", val)).append("]");
                         } else {
                             if (r.getEstado() == EstadoReserva.CANCELADA) {
-                                // Penalización por cancelación tardía (< 24 horas)
                                 if (r.getCreadaEn() != null && r.getHorario().getInicio() != null) {
                                     long hrs = Duration.between(r.getCreadaEn(), r.getHorario().getInicio()).toHours();
-                                    if (hrs < 24) { // Umbral mágico de 24 horas
-                                        double p = 15.0 * 0.50; // Cargo del 50% de la tarifa de penalización
+                                    if (hrs < HORAS_ANTICIPACION_CANCELACION_MINIMA) {
+                                        double p = TARIFA_BASE_PENALIZACION * PORCENTAJE_CARGO_PENALIZACION;
                                         pen = pen + p;
-                                        tot = tot + (p * 0.50); // El docente recibe la mitad de la penalidad
+                                        tot = tot + (p * PORCENTAJE_COMPENSACION_DOCENTE_PENALIZACION);
                                         cnt++;
                                         sb.append("[").append(r.getId()).append(":CANCEL_TARDIA:PEN=$").append(String.format(java.util.Locale.US, "%.2f", p)).append("]");
                                     } else {
-                                        // Cancelación a tiempo: sin pago ni penalidad
                                         cnt++;
                                         sb.append("[").append(r.getId()).append(":CANCEL_OPORTUNA:$0.00]");
                                     }
                                 }
                             } else {
-                                // Pendientes u otros estados
                                 sb.append("[").append(r.getId()).append(":IGNORADA]");
                             }
                         }
@@ -101,7 +105,7 @@ public class LiquidacionTutoriasService {
             }
         }
 
-        double net = tot - (pen * 0.10); // Deducción administrativa del 10% quemada
+        double net = tot - (pen * PORCENTAJE_DEDUCCION_ADMINISTRATIVA);
         sb.append("|TOTAL=$").append(String.format(java.util.Locale.US, "%.2f", tot))
                 .append("|PEN=$").append(String.format(java.util.Locale.US, "%.2f", pen))
                 .append("|NETO=$").append(String.format(java.util.Locale.US, "%.2f", net));
