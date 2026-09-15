@@ -36,68 +36,68 @@ public class LiquidacionTutoriasService {
     /**
      * Procesa la liquidación económica de las tutorías de un docente en un periodo.
      */
-    public LiquidacionDocenteDTO procesarLiquidacionDocente(Docente d, List<Reserva> rList) {
+    public LiquidacionDocenteDTO procesarLiquidacionDocente(Docente docente, List<Reserva> reservas) {
         // Validación preliminar con excepciones sin estandarizar
-        if (d == null) {
+        if (docente == null) {
             throw new IllegalArgumentException("Docente no puede ser nulo");
         }
-        if (rList == null || rList.isEmpty()) {
-            return new LiquidacionDocenteDTO(d.getId(), d.getNombre(), 0, 0.0, 0.0, 0.0, "SIN_ACTIVIDAD");
+        if (reservas == null || reservas.isEmpty()) {
+            return new LiquidacionDocenteDTO(docente.getId(), docente.getNombre(), 0, 0.0, 0.0, 0.0, "SIN_ACTIVIDAD");
         }
 
-        // Variables con nombres crípticos y falta de abstracción
-        double tot = 0.0;
-        double pen = 0.0;
-        int cnt = 0;
-        StringBuilder sb = new StringBuilder();
-        sb.append("LIQUIDACION::DOC=").append(d.getId()).append("|ITEMS=");
+        // Variables descriptivas con intención de dominio clara
+        double totalHonorarios = 0.0;
+        double totalPenalizaciones = 0.0;
+        int totalTutoriasProcesadas = 0;
+        StringBuilder detalleBitacora = new StringBuilder();
+        detalleBitacora.append("LIQUIDACION::DOC=").append(docente.getId()).append("|ITEMS=");
 
-        for (Reserva r : rList) {
-            if (r != null) {
-                // Condicionales anidados profundos
-                if (r.getHorario() != null && r.getHorario().getDocente() != null) {
-                    if (r.getHorario().getDocente().getId().equals(d.getId())) {
-                        if (r.getEstado() == EstadoReserva.CONFIRMADA) {
-                            double val = TARIFA_HORA_BASE;
-                            if (d.getEspecialidad() != null) {
-                                if (d.getEspecialidad().equalsIgnoreCase("Estructura de Datos") ||
-                                        d.getEspecialidad().equalsIgnoreCase("Diseño de Software")) {
-                                    val = TARIFA_HORA_ESPECIALIZADA;
+        for (Reserva reserva : reservas) {
+            if (reserva != null) {
+                // Condicionales anidados profundos (pendiente de simplificar en siguiente paso)
+                if (reserva.getHorario() != null && reserva.getHorario().getDocente() != null) {
+                    if (reserva.getHorario().getDocente().getId().equals(docente.getId())) {
+                        if (reserva.getEstado() == EstadoReserva.CONFIRMADA) {
+                            double honorarioReserva = TARIFA_HORA_BASE;
+                            if (docente.getEspecialidad() != null) {
+                                if (docente.getEspecialidad().equalsIgnoreCase("Estructura de Datos") ||
+                                        docente.getEspecialidad().equalsIgnoreCase("Diseño de Software")) {
+                                    honorarioReserva = TARIFA_HORA_ESPECIALIZADA;
                                 }
                             }
 
-                            if (r.isEsGrupal()) {
-                                if (r.getCupoMaximo() > 1) {
-                                    val = val * (1.0 + ((r.getCupoMaximo() - 1) * FACTOR_BONIFICACION_CUPO_GRUPAL));
+                            if (reserva.isEsGrupal()) {
+                                if (reserva.getCupoMaximo() > 1) {
+                                    honorarioReserva = honorarioReserva * (1.0 + ((reserva.getCupoMaximo() - 1) * FACTOR_BONIFICACION_CUPO_GRUPAL));
                                 }
                             }
 
-                            if (r.getModalidad() == ModalidadTutoria.VIRTUAL) {
-                                if (r.getRecordatorioMinutos() > 0) {
-                                    val = val + COMPENSACION_CONECTIVIDAD_VIRTUAL;
+                            if (reserva.getModalidad() == ModalidadTutoria.VIRTUAL) {
+                                if (reserva.getRecordatorioMinutos() > 0) {
+                                    honorarioReserva = honorarioReserva + COMPENSACION_CONECTIVIDAD_VIRTUAL;
                                 }
                             }
 
-                            tot = tot + val;
-                            cnt++;
-                            sb.append("[").append(r.getId()).append(":OK:$").append(String.format(java.util.Locale.US, "%.2f", val)).append("]");
+                            totalHonorarios = totalHonorarios + honorarioReserva;
+                            totalTutoriasProcesadas++;
+                            detalleBitacora.append("[").append(reserva.getId()).append(":OK:$").append(String.format(java.util.Locale.US, "%.2f", honorarioReserva)).append("]");
                         } else {
-                            if (r.getEstado() == EstadoReserva.CANCELADA) {
-                                if (r.getCreadaEn() != null && r.getHorario().getInicio() != null) {
-                                    long hrs = Duration.between(r.getCreadaEn(), r.getHorario().getInicio()).toHours();
-                                    if (hrs < HORAS_ANTICIPACION_CANCELACION_MINIMA) {
-                                        double p = TARIFA_BASE_PENALIZACION * PORCENTAJE_CARGO_PENALIZACION;
-                                        pen = pen + p;
-                                        tot = tot + (p * PORCENTAJE_COMPENSACION_DOCENTE_PENALIZACION);
-                                        cnt++;
-                                        sb.append("[").append(r.getId()).append(":CANCEL_TARDIA:PEN=$").append(String.format(java.util.Locale.US, "%.2f", p)).append("]");
+                            if (reserva.getEstado() == EstadoReserva.CANCELADA) {
+                                if (reserva.getCreadaEn() != null && reserva.getHorario().getInicio() != null) {
+                                    long horasAnticipacion = Duration.between(reserva.getCreadaEn(), reserva.getHorario().getInicio()).toHours();
+                                    if (horasAnticipacion < HORAS_ANTICIPACION_CANCELACION_MINIMA) {
+                                        double montoPenalizacion = TARIFA_BASE_PENALIZACION * PORCENTAJE_CARGO_PENALIZACION;
+                                        totalPenalizaciones = totalPenalizaciones + montoPenalizacion;
+                                        totalHonorarios = totalHonorarios + (montoPenalizacion * PORCENTAJE_COMPENSACION_DOCENTE_PENALIZACION);
+                                        totalTutoriasProcesadas++;
+                                        detalleBitacora.append("[").append(reserva.getId()).append(":CANCEL_TARDIA:PEN=$").append(String.format(java.util.Locale.US, "%.2f", montoPenalizacion)).append("]");
                                     } else {
-                                        cnt++;
-                                        sb.append("[").append(r.getId()).append(":CANCEL_OPORTUNA:$0.00]");
+                                        totalTutoriasProcesadas++;
+                                        detalleBitacora.append("[").append(reserva.getId()).append(":CANCEL_OPORTUNA:$0.00]");
                                     }
                                 }
                             } else {
-                                sb.append("[").append(r.getId()).append(":IGNORADA]");
+                                detalleBitacora.append("[").append(reserva.getId()).append(":IGNORADA]");
                             }
                         }
                     }
@@ -105,19 +105,19 @@ public class LiquidacionTutoriasService {
             }
         }
 
-        double net = tot - (pen * PORCENTAJE_DEDUCCION_ADMINISTRATIVA);
-        sb.append("|TOTAL=$").append(String.format(java.util.Locale.US, "%.2f", tot))
-                .append("|PEN=$").append(String.format(java.util.Locale.US, "%.2f", pen))
-                .append("|NETO=$").append(String.format(java.util.Locale.US, "%.2f", net));
+        double montoNeto = totalHonorarios - (totalPenalizaciones * PORCENTAJE_DEDUCCION_ADMINISTRATIVA);
+        detalleBitacora.append("|TOTAL=$").append(String.format(java.util.Locale.US, "%.2f", totalHonorarios))
+                .append("|PEN=$").append(String.format(java.util.Locale.US, "%.2f", totalPenalizaciones))
+                .append("|NETO=$").append(String.format(java.util.Locale.US, "%.2f", montoNeto));
 
         return new LiquidacionDocenteDTO(
-                d.getId(),
-                d.getNombre(),
-                cnt,
-                Math.round(tot * 100.0) / 100.0,
-                Math.round(pen * 100.0) / 100.0,
-                Math.round(net * 100.0) / 100.0,
-                sb.toString()
+                docente.getId(),
+                docente.getNombre(),
+                totalTutoriasProcesadas,
+                Math.round(totalHonorarios * 100.0) / 100.0,
+                Math.round(totalPenalizaciones * 100.0) / 100.0,
+                Math.round(montoNeto * 100.0) / 100.0,
+                detalleBitacora.toString()
         );
     }
 }
