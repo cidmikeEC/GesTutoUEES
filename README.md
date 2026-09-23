@@ -236,3 +236,79 @@ Antes de alterar una sola línea de código fuente, se construyó una suite de 4
 * bb1afca refactor: extraer constantes simbolicas para tarifas y politicas de penalizacion
 * dd374f6 chore: registrar linea base de Ae4
 ```
+
+---
+
+## 🚀 10. Actividad Evaluada 3 | Ae5 – Refactorización Avanzada Respaldada por Pruebas Unitarias (Segundo Parcial)
+
+En esta fase integradora se aplicó refactorización estructural de mayor alcance arquitectónico sobre el módulo de liquidación económica docente, erradicando olores de diseño a nivel de clases y tipos de dominio. Se siguió estrictamente el ciclo disciplinado:
+$$\text{PRUEBA VERDE} \longrightarrow \text{CAMBIO PEQUEÑO} \longrightarrow \text{PRUEBA VERDE} \longrightarrow \text{COMMIT} \longrightarrow \text{SIGUIENTE CAMBIO}$$
+
+### 📌 Matriz de Refactorizaciones Avanzadas Justificadas (Ae5)
+
+| Refactorización | Técnica Aplicada | Problema Estructural que Resuelve | Justificación de Diseño y Reducción del Costo de Cambio |
+| :--- | :--- | :--- | :--- |
+| **Refactorización 1** | **Introduce Value Object (`Dinero.java`)** | *Primitive Obsession* en montos y operaciones financieras (`double` sueltos y redondeos dispersos). | Modela la moneda como concepto del dominio inmutable. Encapsula validación de no-negatividad, escala de 2 decimales (`HALF_UP`) y operaciones (`sumar`, `restar`, `porcentaje`). Previene inconsistencias financieras y errores de punto flotante. |
+| **Refactorización 2** | **Extract Class (`CalculadorHonorariosDocente.java`)** | Violación de *Single Responsibility Principle (SRP)* y *Divergent Change* en `LiquidacionTutoriasService`. | El servicio mezclaba la orquestación de nómina con las fórmulas de tarifas por especialidad (Estructura de Datos vs. General), bonos grupales y compensación virtual. Aislar esta clase permite modificar políticas arancelarias sin tocar el flujo de liquidación. |
+| **Refactorización 3** | **Extract Class & Move Method (`PoliticaCancelacion.java`)** | Acoplamiento de reglas de cortesía y penalizaciones dentro del servicio orquestador. | Mueve la evaluación de ventana temporal (`horasAnticipacion < 24h`), cálculo de cargos por penalización, compensación al docente y retención institucional a una clase cohesiva. El servicio ahora solo coordina colaboradores especializados. |
+
+### 🧪 Preservación Estricta del Comportamiento (Suite JUnit 5 en Verde)
+
+La suite de pruebas automatizadas creció de 29 a **40 pruebas unitarias**, asegurando que cada componente extraído cuente con cobertura aislada mientras las pruebas de integración histórica (`LiquidacionTutoriasTest.java`) certifican que el contrato observable externo se mantiene 100% idéntico:
+
+```text
+[INFO] Running edu.uees.tutorias.AdapterTest (3 tests) -> OK
+[INFO] Running edu.uees.tutorias.CalculadorHonorariosDocenteTest (3 tests) -> OK [NUEVO Ae5]
+[INFO] Running edu.uees.tutorias.DineroTest (5 tests) -> OK [NUEVO Ae5]
+[INFO] Running edu.uees.tutorias.FacadeTest (3 tests) -> OK
+[INFO] Running edu.uees.tutorias.FactoryMethodTest (5 tests) -> OK
+[INFO] Running edu.uees.tutorias.LiquidacionTutoriasTest (4 tests) -> OK [Línea Base Preservada]
+[INFO] Running edu.uees.tutorias.ObserverTest (4 tests) -> OK
+[INFO] Running edu.uees.tutorias.PoliticaCancelacionTest (3 tests) -> OK [NUEVO Ae5]
+[INFO] Running edu.uees.tutorias.ReservaBuilderTest (7 tests) -> OK
+[INFO] Running edu.uees.tutorias.ServicioReservasTest (3 tests) -> OK
+[INFO] 
+[INFO] Results:
+[INFO] Tests run: 40, Failures: 0, Errors: 0, Skipped: 0
+[INFO] BUILD SUCCESS
+```
+
+### 📊 Comparativa de Arquitectura: ANTES (Ae4) vs. DESPUÉS (Ae5)
+
+| Dimensión de Diseño | Estado Previo (Ae4) | Estado Refactorizado (Ae5) | Beneficio Técnico Observable |
+| :--- | :--- | :--- | :--- |
+| **Responsabilidades del Servicio** | 3 responsabilidades mezcladas (orquestar nómina, calcular tarifas, penalizar cancelaciones). | **1 única responsabilidad** (orquestar la liquidación delegando en expertos de dominio). | Cumplimiento estricto de SRP y alta cohesión. |
+| **Manejo de Montos Financieros** | Primitivos `double` primitivos, redondeos manuales `Math.round(...) / 100.0` duplicados. | **Value Object inmutable `Dinero`** con redondeo `HALF_UP` y validación de invariantes. | Cero Primitive Obsession; inmutabilidad y seguridad de tipos. |
+| **Políticas de Honorarios** | Métodos privados dispersos dentro de `LiquidacionTutoriasService`. | Clase dedicada `CalculadorHonorariosDocente` testeable independientemente. | Abierto a nuevas tarifas docentes sin modificar el servicio (OCP). |
+| **Políticas de Cancelación** | Métodos privados de fecha y porcentajes dentro del servicio. | Clase dedicada `PoliticaCancelacion` con umbrales y factores encapsulados. | Pruebas unitarias directas de penalización y fácil parametrización. |
+| **Acoplamiento Ciclomático** | Servicio dependiente de lógica interna de tarifas y penalizaciones. | Servicio desacoplado inyectando colaboradores mediante constructor. | Inversión de dependencias (DIP) y testeabilidad modular. |
+| **Comportamiento Observable** | 29 tests en verde. | **40 tests en verde** (preservación total + cobertura de nuevos colaboradores). | Cero regresiones funcionales verificadas empíricamente. |
+
+### 📜 Historial Git de la Refactorización Ae5 (Commits Atómicos)
+
+```text
+* f19fb6a feat(ae5): incorporar demostracion en consola de arquitectura refactorizada y validaciones de invariantes
+* a151031 refactor(ae5): extraer PoliticaCancelacion y reorganizar responsabilidades de penalizacion
+* 5ee3d31 refactor(ae5): extraer clase CalculadorHonorariosDocente para aislar politicas de tarifas y bonos
+* 0f971dd refactor(ae5): introducir Value Object Dinero para erradicar Primitive Obsession
+```
+
+### 🎯 Respuestas a las Preguntas Centrales de Defensa (Ae5)
+
+1. **¿Qué comportamiento protegiste antes de la primera refactorización?**  
+   Se protegió el contrato observable completo de liquidación en `LiquidacionTutoriasTest`: el cálculo exacto de honorarios especializados ($32.50 con bono virtual), bonificación grupal escalonada ($39.00), penalizaciones por cancelación tardía menor a 24 horas ($7.50 con compensación de $3.75 y deducción de $0.75), cancelación oportuna ($0.00) y el manejo de listas vacías y docentes nulos.
+
+2. **¿Por qué seleccionaste esas tres refactorizaciones?**  
+   Porque atacaban los tres olores estructurales que sobrevivieron a la refactorización a nivel de método: (1) *Primitive Obsession* en el manejo de dinero, (2) *Divergent Change* al mezclar políticas de tarifas con orquestación, y (3) *Feature Envy* y falta de cohesión en las reglas de cancelación. Cada refactorización aisló un concepto de negocio en un colaborador específico.
+
+3. **¿Qué prueba habría detectado una regresión concreta?**  
+   Si al extraer `CalculadorHonorariosDocente` se hubiera omitido la bonificación del 15% por cupo adicional, `testCaso2_TutoriaGrupalPresencialConfirmada` habría fallado de inmediato esperando $39.00 y recibiendo $30.00. Asimismo, si al extraer `Dinero` se alteraba el redondeo de los centavos en la deducción administrativa, `testCaso3_TutoriaCanceladaTardiaConPenalizacion` habría parpadeado en el monto neto de $3.00.
+
+4. **¿Qué cambió en el diseño y qué permaneció igual funcionalmente?**  
+   Cambió la distribución de responsabilidades, la cohesión interna y la seguridad de tipos: se crearon tres nuevas clases (`Dinero`, `CalculadorHonorariosDocente`, `PoliticaCancelacion`) y el servicio redujo sus líneas drásticamente delegando el trabajo. Funcionalmente, las entradas, salidas de `LiquidacionDocenteDTO`, montos exactos y bitácoras permanecieron 100% idénticos.
+
+5. **¿Qué evidencia proporciona tu historial Git?**  
+   Demuestra un proceso disciplinado y controlado: en lugar de un único commit masivo de "código limpio", existen commits atómicos por cada técnica aplicada (`0f971dd`, `5ee3d31`, `a151031`, `f19fb6a`), cada uno respaldado por una compilación exitosa y la suite de pruebas en verde antes de dar el siguiente paso.
+
+6. **¿Qué costo o riesgo introdujo alguna de tus decisiones?**  
+   Aumentó ligeramente la cantidad de clases en el proyecto (indirección). Sin embargo, el costo de instanciar o inyectar colaboradores es insignificante frente al beneficio de poder cambiar la tarifa horaria o la política de cancelación sin arriesgar la lógica central de nómina.
