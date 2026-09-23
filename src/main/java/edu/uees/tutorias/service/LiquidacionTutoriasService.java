@@ -1,5 +1,6 @@
 package edu.uees.tutorias.service;
 
+import edu.uees.tutorias.domain.Dinero;
 import edu.uees.tutorias.domain.Docente;
 import edu.uees.tutorias.domain.EstadoReserva;
 import edu.uees.tutorias.domain.ModalidadTutoria;
@@ -23,21 +24,20 @@ import java.util.List;
  */
 public class LiquidacionTutoriasService {
 
-    // Constantes de política de cancelación (a extraer en Refactorización 3)
-    private static final long HORAS_ANTICIPACION_CANCELACION_MINIMA = 24;
-    private static final double TARIFA_BASE_PENALIZACION = 15.0;
-    private static final double PORCENTAJE_CARGO_PENALIZACION = 0.50;
-    private static final double PORCENTAJE_COMPENSACION_DOCENTE_PENALIZACION = 0.50;
-    private static final double PORCENTAJE_DEDUCCION_ADMINISTRATIVA = 0.10;
-
     private final CalculadorHonorariosDocente calculadorHonorarios;
+    private final PoliticaCancelacion politicaCancelacion;
 
     public LiquidacionTutoriasService() {
-        this(new CalculadorHonorariosDocente());
+        this(new CalculadorHonorariosDocente(), new PoliticaCancelacion());
     }
 
     public LiquidacionTutoriasService(CalculadorHonorariosDocente calculadorHonorarios) {
+        this(calculadorHonorarios, new PoliticaCancelacion());
+    }
+
+    public LiquidacionTutoriasService(CalculadorHonorariosDocente calculadorHonorarios, PoliticaCancelacion politicaCancelacion) {
         this.calculadorHonorarios = calculadorHonorarios != null ? calculadorHonorarios : new CalculadorHonorariosDocente();
+        this.politicaCancelacion = politicaCancelacion != null ? politicaCancelacion : new PoliticaCancelacion();
     }
 
     /**
@@ -51,8 +51,8 @@ public class LiquidacionTutoriasService {
             return new LiquidacionDocenteDTO(docente.getId(), docente.getNombre(), 0, 0.0, 0.0, 0.0, "SIN_ACTIVIDAD");
         }
 
-        double totalHonorarios = 0.0;
-        double totalPenalizaciones = 0.0;
+        Dinero totalHonorarios = Dinero.cero();
+        Dinero totalPenalizaciones = Dinero.cero();
         int totalTutoriasProcesadas = 0;
         StringBuilder detalleBitacora = new StringBuilder();
         detalleBitacora.append("LIQUIDACION::DOC=").append(docente.getId()).append("|ITEMS=");
@@ -63,20 +63,21 @@ public class LiquidacionTutoriasService {
             }
 
             if (reserva.getEstado() == EstadoReserva.CONFIRMADA) {
-                double honorarioReserva = calculadorHonorarios.calcularHonorarioConfirmada(reserva, docente).getValor();
-                totalHonorarios += honorarioReserva;
+                Dinero honorarioReserva = calculadorHonorarios.calcularHonorarioConfirmada(reserva, docente);
+                totalHonorarios = totalHonorarios.sumar(honorarioReserva);
                 totalTutoriasProcesadas++;
-                detalleBitacora.append("[").append(reserva.getId()).append(":OK:$")
-                        .append(String.format(java.util.Locale.US, "%.2f", honorarioReserva)).append("]");
+                detalleBitacora.append("[").append(reserva.getId()).append(":OK:")
+                        .append(honorarioReserva.toString()).append("]");
 
             } else if (reserva.getEstado() == EstadoReserva.CANCELADA) {
-                if (esCancelacionTardia(reserva)) {
-                    double montoPenalizacion = calcularMontoPenalizacion();
-                    totalPenalizaciones += montoPenalizacion;
-                    totalHonorarios += (montoPenalizacion * PORCENTAJE_COMPENSACION_DOCENTE_PENALIZACION);
+                if (politicaCancelacion.esCancelacionTardia(reserva)) {
+                    Dinero montoPenalizacion = politicaCancelacion.calcularMontoPenalizacion();
+                    Dinero compensacionDocente = politicaCancelacion.calcularCompensacionDocente(montoPenalizacion);
+                    totalPenalizaciones = totalPenalizaciones.sumar(montoPenalizacion);
+                    totalHonorarios = totalHonorarios.sumar(compensacionDocente);
                     totalTutoriasProcesadas++;
-                    detalleBitacora.append("[").append(reserva.getId()).append(":CANCEL_TARDIA:PEN=$")
-                            .append(String.format(java.util.Locale.US, "%.2f", montoPenalizacion)).append("]");
+                    detalleBitacora.append("[").append(reserva.getId()).append(":CANCEL_TARDIA:PEN=")
+                            .append(montoPenalizacion.toString()).append("]");
                 } else {
                     totalTutoriasProcesadas++;
                     detalleBitacora.append("[").append(reserva.getId()).append(":CANCEL_OPORTUNA:$0.00]");
@@ -86,18 +87,20 @@ public class LiquidacionTutoriasService {
             }
         }
 
-        double montoNeto = totalHonorarios - (totalPenalizaciones * PORCENTAJE_DEDUCCION_ADMINISTRATIVA);
-        detalleBitacora.append("|TOTAL=$").append(String.format(java.util.Locale.US, "%.2f", totalHonorarios))
-                .append("|PEN=$").append(String.format(java.util.Locale.US, "%.2f", totalPenalizaciones))
-                .append("|NETO=$").append(String.format(java.util.Locale.US, "%.2f", montoNeto));
+        Dinero deduccionAdministrativa = politicaCancelacion.calcularDeduccionAdministrativa(totalPenalizaciones);
+        Dinero montoNeto = totalHonorarios.restar(deduccionAdministrativa);
+
+        detalleBitacora.append("|TOTAL=").append(totalHonorarios.toString())
+                .append("|PEN=").append(totalPenalizaciones.toString())
+                .append("|NETO=").append(montoNeto.toString());
 
         return new LiquidacionDocenteDTO(
                 docente.getId(),
                 docente.getNombre(),
                 totalTutoriasProcesadas,
-                Math.round(totalHonorarios * 100.0) / 100.0,
-                Math.round(totalPenalizaciones * 100.0) / 100.0,
-                Math.round(montoNeto * 100.0) / 100.0,
+                totalHonorarios.getValor(),
+                totalPenalizaciones.getValor(),
+                montoNeto.getValor(),
                 detalleBitacora.toString()
         );
     }
@@ -110,23 +113,5 @@ public class LiquidacionTutoriasService {
             return false;
         }
         return reserva.getHorario().getDocente().getId().equals(docente.getId());
-    }
-
-    /**
-     * Evalúa si una cancelación se efectuó fuera del margen mínimo de cortesía (cancelación tardía).
-     */
-    private boolean esCancelacionTardia(Reserva reserva) {
-        if (reserva.getCreadaEn() == null || reserva.getHorario() == null || reserva.getHorario().getInicio() == null) {
-            return false;
-        }
-        long horasAnticipacion = Duration.between(reserva.getCreadaEn(), reserva.getHorario().getInicio()).toHours();
-        return horasAnticipacion < HORAS_ANTICIPACION_CANCELACION_MINIMA;
-    }
-
-    /**
-     * Calcula el monto de penalización económica por cancelación tardía.
-     */
-    private double calcularMontoPenalizacion() {
-        return TARIFA_BASE_PENALIZACION * PORCENTAJE_CARGO_PENALIZACION;
     }
 }
