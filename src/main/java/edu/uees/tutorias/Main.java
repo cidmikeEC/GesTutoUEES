@@ -21,8 +21,10 @@ import edu.uees.tutorias.notification.CreadorNotificadorWhatsApp;
 import edu.uees.tutorias.notification.Notificador;
 import edu.uees.tutorias.persistence.RepositorioReservas;
 import edu.uees.tutorias.persistence.RepositorioReservasEnMemoria;
+import edu.uees.tutorias.service.CalculadorHonorariosDocente;
 import edu.uees.tutorias.service.LiquidacionDocenteDTO;
 import edu.uees.tutorias.service.LiquidacionTutoriasService;
+import edu.uees.tutorias.service.PoliticaCancelacion;
 import edu.uees.tutorias.service.ServicioReservas;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -185,15 +187,18 @@ public class Main {
         }
 
         // =========================================================================
-        // PARTE 4: DEMOSTRACIÓN DE LA KATA Ae4 (Liquidación y Nómina Docente)
+        // PARTE 5: DEMOSTRACIÓN Ae5 (Refactorización Avanzada Respaldada por Pruebas)
         // =========================================================================
-        imprimirSeccion("PARTE 4: DEMOSTRACIÓN DE LA KATA Ae4 (Servicio de Liquidación y Nómina)");
-        LiquidacionTutoriasService servicioLiquidacion = new LiquidacionTutoriasService();
+        imprimirSeccion("PARTE 5: REFACTORIZACIÓN AVANZADA Ae5 (Value Objects, Extract Class y Validaciones)");
+
+        CalculadorHonorariosDocente calculador = new CalculadorHonorariosDocente();
+        PoliticaCancelacion politica = new PoliticaCancelacion();
+        LiquidacionTutoriasService servicioLiquidacion = new LiquidacionTutoriasService(calculador, politica);
 
         List<Reserva> reservasParaLiquidacion = List.of(tutoriaVirtual, tutoriaPresencial);
         LiquidacionDocenteDTO liquidacionDocente2 = servicioLiquidacion.procesarLiquidacionDocente(docente2, reservasParaLiquidacion);
 
-        System.out.println("💼 Estado de Liquidación Docente (Servicio Refactorizado):");
+        System.out.println("💼 Estado de Liquidación Docente (Arquitectura Ae5 Desacoplada):");
         System.out.println("   • Docente: " + liquidacionDocente2.getNombreDocente() + " (ID: " + liquidacionDocente2.getIdDocente() + ")");
         System.out.println("   • Tutorías procesadas: " + liquidacionDocente2.getTutoriasProcesadas());
         System.out.printf(java.util.Locale.US, "   • Total honorarios devengados: $%.2f%n", liquidacionDocente2.getTotalHonorarios());
@@ -201,7 +206,22 @@ public class Main {
         System.out.printf(java.util.Locale.US, "   • Monto neto liquidado: $%.2f%n", liquidacionDocente2.getTotalNeto());
         System.out.println("   • Detalle trazable: " + liquidacionDocente2.getDetalleLiquidacion());
 
-        imprimirEncabezado("INCREMENTO 1 & KATA Ae4 EJECUTADOS EXITOSAMENTE — UEES 2026");
+        // Verificación y validación de invariantes en vivo
+        System.out.println("\n🛡️ Verificación de Invariantes y Validaciones de Dominio (Ae5):");
+        try {
+            edu.uees.tutorias.domain.Dinero.de(-10.0);
+        } catch (IllegalArgumentException ex) {
+            System.out.println("   [VALIDACIÓN OK] Dinero.de(-10.0) rechazado: " + ex.getMessage());
+        }
+
+        try {
+            servicioLiquidacion.procesarLiquidacionDocente(null, reservasParaLiquidacion);
+        } catch (IllegalArgumentException ex) {
+            System.out.println("   [VALIDACIÓN OK] Liquidacion con docente nulo rechazada: " + ex.getMessage());
+        }
+
+        System.out.println("   [ARQUITECTURA OK] Clases altamente cohesivas: Dinero, CalculadorHonorariosDocente, PoliticaCancelacion");
+        imprimirEncabezado("INCREMENTO 1, KATA Ae4 & REFACTORIZACIÓN Ae5 EJECUTADOS CON ÉXITO — UEES 2026");
     }
 
     private static void imprimirEncabezado(String titulo) {
